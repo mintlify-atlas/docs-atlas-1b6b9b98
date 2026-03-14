@@ -1,0 +1,147 @@
+{
+  "projectType": "saas",
+  "projectName": "Casa de Historias",
+  "projectDescription": "Mobile app for preserving and sharing indigenous legends from the Sierra de Zongolica in both Spanish and Nahuatl",
+  "theme": "almond",
+  "primaryColor": "#06B6D4",
+  "lightColor": "#F43F5E",
+  "darkColor": "#0891B2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "features",
+              "installation"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guide/authentication",
+              "guide/browsing-stories",
+              "guide/creating-stories",
+              "guide/favorites",
+              "guide/map-exploration",
+              "guide/nahuatl-dictionary"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/data-layer",
+              "architecture/ui-layer",
+              "architecture/navigation",
+              "architecture/dependency-injection"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "development/setup",
+              "development/building",
+              "development/firebase-setup"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "development/compose-ui",
+              "development/theme-system",
+              "development/screens"
+            ]
+          },
+          {
+            "group": "Data & Storage",
+            "pages": [
+              "development/firestore",
+              "development/firebase-auth",
+              "development/firebase-storage",
+              "development/room-database"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Domain Models",
+            "pages": [
+              "api/models/story",
+              "api/models/user-profile"
+            ]
+          },
+          {
+            "group": "Repositories",
+            "pages": [
+              "api/repositories/story-repository",
+              "api/repositories/auth-repository",
+              "api/repositories/firestore-repository",
+              "api/repositories/storage-repository"
+            ]
+          },
+          {
+            "group": "ViewModels",
+            "pages": [
+              "api/viewmodels/story-viewmodel",
+              "api/viewmodels/auth-viewmodel",
+              "api/viewmodels/favorites-viewmodel",
+              "api/viewmodels/search-viewmodel",
+              "api/viewmodels/add-story-viewmodel"
+            ]
+          },
+          {
+            "group": "Navigation",
+            "pages": [
+              "api/navigation/screens",
+              "api/navigation/nav-graph"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Bilingual content support (Spanish and Nahuatl)",
+    "Story creation and management with audio and images",
+    "Interactive map showing story locations",
+    "Favorites and personalized collections",
+    "Nahuatl dictionary for language learning",
+    "Firebase-based authentication and data sync",
+    "Offline support with Room database",
+    "Audio playback with Media3 ExoPlayer",
+    "Community-based story organization",
+    "Search and discovery features"
+  ],
+  "publicApiSurface": [
+    "Story (domain model)",
+    "StoryRepository",
+    "AuthRepository",
+    "FirestoreRepository",
+    "StorageRepository",
+    "StoryViewModel",
+    "AuthViewModel",
+    "FavoritesViewModel",
+    "SearchViewModel",
+    "AddStoryViewModel",
+    "NavGraph",
+    "Screen (sealed class)",
+    "MainContainer",
+    "StoryDetailScreen",
+    "StoryListScreen",
+    "StoryMapScreen",
+    "DiscoverScreen",
+    "DictionaryScreen"
+  ]
+}
