@@ -1,0 +1,388 @@
+---
+title: Firestore Database
+description: Learn how Casa de Historias uses Cloud Firestore for real-time data synchronization and story management
+icon: database
+---
+
+## Overview
+
+Casa de Historias uses Cloud Firestore as its primary cloud database for storing and syncing stories, user profiles, and application data in real-time. The `FirestoreRepository` class provides a comprehensive API for interacting with Firestore collections.
+
+## FirestoreRepository
+
+Location: `data/firebase/FirestoreRepository.kt:15`
+
+The repository is implemented as a Singleton and uses dependency injection to access the FirebaseFirestore instance.
+
+```kotlin
+@Singleton
+class FirestoreRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+)
+```
+
+## Data Models
+
+### StoryFirestore
+
+Location: `data/firebase/model/StoryFirestore.kt:6`
+
+The primary data model for stories stored in Firestore:
+
+```kotlin
+data class StoryFirestore(
+    @DocumentId
+    val id: String = "",
+    val titleEs: String = "",
+    val titleNahuatl: String = "",
+    val contentEs: String = "",
+    val contentNahuatl: String = "",
+    val audioUrl: String? = null,
+    val imageUrl: String? = null,
+    val narratorName: String = "",
+    val community: String = "",
+    val createdAt: Timestamp = Timestamp.now(),
+    val updatedAt: Timestamp = Timestamp.now(),
+    val published: Boolean = true,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+```
+
+<Note>
+The `@DocumentId` annotation automatically maps the Firestore document ID to the `id` field.
+</Note>
+
+## Core Operations
+
+### Real-time Story Updates
+
+Location: `data/firebase/FirestoreRepository.kt:19`
+
+The repository provides a Flow-based API for real-time story updates:
+
+```kotlin
+fun getAllStoriesFlow(): Flow<List<StoryFirestore>> = callbackFlow {
+    val listener = firestore.collection("stories")
+        .whereEqualTo("published", true)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+
+            val stories = snapshot?.documents?.mapNotNull { doc ->
+                doc.toObject(StoryFirestore::class.java)
+            } ?: emptyList()
+
+            trySend(stories)
+        }
+
+    awaitClose { listener.remove() }
+}
+```
+
+<Tip>
+Using `callbackFlow` allows seamless integration with Kotlin Coroutines and Compose, enabling reactive UI updates.
+</Tip>
+
+### Querying Stories
+
+The repository provides several query methods:
+
+#### Get All Stories
+
+Location: `data/firebase/FirestoreRepository.kt:39`
+
+```kotlin
+suspend fun getAllStories(): List<StoryFirestore> {
+    return try {
+        val snapshot = firestore.collection("stories")
+            .whereEqualTo("published", true)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+
+        snapshot.documents.mapNotNull { doc ->
+            doc.toObject(StoryFirestore::class.java)
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+#### Get Story by ID
+
+Location: `data/firebase/FirestoreRepository.kt:55`
+
+```kotlin
+suspend fun getStoryById(id: String): StoryFirestore? {
+    return try {
+        val document = firestore.collection("stories").document(id).get().await()
+        document.toObject(StoryFirestore::class.java)
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+#### Get Stories by Community
+
+Location: `data/firebase/FirestoreRepository.kt:64`
+
+```kotlin
+suspend fun getStoriesByCommunity(community: String): List<StoryFirestore> {
+    return try {
+        val snapshot = firestore.collection("stories")
+            .whereEqualTo("community", community)
+            .whereEqualTo("published", true)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+
+        snapshot.documents.mapNotNull { doc ->
+            doc.toObject(StoryFirestore::class.java)
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+#### Get Stories by Author
+
+Location: `data/firebase/FirestoreRepository.kt:81`
+
+Returns all stories created by a specific author, including unpublished drafts.
+
+### Batch Queries
+
+Location: `data/firebase/FirestoreRepository.kt:97`
+
+Firestore has a limitation of 30 items per `whereIn` query. The repository handles this automatically:
+
+```kotlin
+suspend fun getStoriesByIds(ids: List<String>): List<StoryFirestore> {
+    if (ids.isEmpty()) return emptyList()
+    return try {
+        // Firestore 'in' queries support max 30 items
+        val results = mutableListOf<StoryFirestore>()
+        ids.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("stories")
+                .whereIn("__name__", chunk.map { firestore.collection("stories").document(it) })
+                .get()
+                .await()
+            results.addAll(snapshot.documents.mapNotNull { doc ->
+                doc.toObject(StoryFirestore::class.java)
+            })
+        }
+        results
+    } catch (e: Exception) {
+        // Fallback: fetch one by one
+        ids.mapNotNull { getStoryById(it) }
+    }
+}
+```
+
+<Warning>
+Firestore limits `whereIn` queries to 30 items. The implementation chunks large ID lists and falls back to individual fetches if batch queries fail.
+</Warning>
+
+### Write Operations
+
+#### Add Story
+
+Location: `data/firebase/FirestoreRepository.kt:118`
+
+```kotlin
+suspend fun addStory(story: StoryFirestore): String? {
+    return try {
+        val documentRef = firestore.collection("stories").document()
+        val storyWithId = story.copy(
+            id = documentRef.id,
+            createdAt = Timestamp.now(),
+            updatedAt = Timestamp.now()
+        )
+        documentRef.set(storyWithId).await()
+        documentRef.id
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+#### Update Story
+
+Location: `data/firebase/FirestoreRepository.kt:133`
+
+```kotlin
+suspend fun updateStory(story: StoryFirestore): Boolean {
+    return try {
+        firestore.collection("stories")
+            .document(story.id)
+            .set(story.copy(updatedAt = Timestamp.now()))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+#### Delete Story
+
+Location: `data/firebase/FirestoreRepository.kt:145`
+
+```kotlin
+suspend fun deleteStory(storyId: String): Boolean {
+    return try {
+        firestore.collection("stories").document(storyId).delete().await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+### Search Implementation
+
+Location: `data/firebase/FirestoreRepository.kt:154`
+
+Due to Firestore's limited full-text search capabilities, the app fetches all published stories and filters them locally:
+
+```kotlin
+suspend fun searchStories(query: String): List<StoryFirestore> {
+    return try {
+        // Fetch all published stories and filter locally for more flexible search
+        val snapshot = firestore.collection("stories")
+            .whereEqualTo("published", true)
+            .get()
+            .await()
+
+        val allStories = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(StoryFirestore::class.java)
+        }
+
+        val lowerQuery = query.lowercase()
+        allStories.filter { story ->
+            story.titleEs.lowercase().contains(lowerQuery) ||
+            story.titleNahuatl.lowercase().contains(lowerQuery) ||
+            story.narratorName.lowercase().contains(lowerQuery) ||
+            story.community.lowercase().contains(lowerQuery) ||
+            story.tags.any { it.lowercase().contains(lowerQuery) }
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+<Note>
+For production apps with large datasets, consider using Algolia, ElasticSearch, or Cloud Functions with full-text search capabilities.
+</Note>
+
+### Favorites Management
+
+The repository manages user favorites through Firestore array operations:
+
+#### Add to Favorites
+
+Location: `data/firebase/FirestoreRepository.kt:179`
+
+```kotlin
+suspend fun addToFavorites(userId: String, storyId: String): Boolean {
+    return try {
+        firestore.collection("users").document(userId)
+            .update("favoriteStories", FieldValue.arrayUnion(storyId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+#### Remove from Favorites
+
+Location: `data/firebase/FirestoreRepository.kt:190`
+
+```kotlin
+suspend fun removeFromFavorites(userId: String, storyId: String): Boolean {
+    return try {
+        firestore.collection("users").document(userId)
+            .update("favoriteStories", FieldValue.arrayRemove(storyId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+<Tip>
+`FieldValue.arrayUnion()` and `FieldValue.arrayRemove()` are atomic operations that prevent race conditions when multiple devices update favorites simultaneously.
+</Tip>
+
+## Firestore Collections
+
+### Stories Collection
+
+**Collection Path:** `stories`
+
+<AccordionGroup>
+  <Accordion title="Schema">
+    | Field | Type | Description |
+    |-------|------|-------------|
+    | id | String | Document ID |
+    | titleEs | String | Story title in Spanish |
+    | titleNahuatl | String | Story title in Nahuatl |
+    | contentEs | String | Story content in Spanish |
+    | contentNahuatl | String | Story content in Nahuatl |
+    | audioUrl | String? | Firebase Storage URL for audio |
+    | imageUrl | String? | Firebase Storage URL for cover image |
+    | narratorName | String | Name of the storyteller |
+    | community | String | Indigenous community name |
+    | createdAt | Timestamp | Creation timestamp |
+    | updatedAt | Timestamp | Last update timestamp |
+    | published | Boolean | Publication status |
+    | authorId | String | User ID of story creator |
+    | tags | List\<String\> | Story tags for categorization |
+    | latitude | Double? | Geographic latitude |
+    | longitude | Double? | Geographic longitude |
+  </Accordion>
+  
+  <Accordion title="Indexes Required">
+    The following composite indexes are required:
+    
+    - `published` (Ascending) + `createdAt` (Descending)
+    - `community` (Ascending) + `published` (Ascending) + `createdAt` (Descending)
+    - `authorId` (Ascending) + `createdAt` (Descending)
+  </Accordion>
+</AccordionGroup>
+
+### Users Collection
+
+**Collection Path:** `users`
+
+See [Firebase Authentication](/development/firebase-auth) for the user profile schema.
+
+## Error Handling
+
+All repository methods use try-catch blocks and return safe defaults:
+
+- Query methods return empty lists on error
+- Single-item queries return `null` on error
+- Write operations return `false` on failure
+
+<CardGroup cols={2}>
+  <Card title="Firebase Authentication" icon="user-shield" href="/development/firebase-auth">
+    Learn about user authentication and profile management
+  </Card>
+  <Card title="Firebase Storage" icon="cloud-arrow-up" href="/development/firebase-storage">
+    Understand how media files are stored and retrieved
+  </Card>
+</CardGroup>

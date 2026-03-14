@@ -1,0 +1,480 @@
+---
+title: UI Layer
+description: Learn about the UI layer with Jetpack Compose, ViewModels, and state management
+icon: paint-brush
+---
+
+The UI layer is built entirely with Jetpack Compose, following modern Android development practices with declarative UI and reactive state management.
+
+## Architecture Components
+
+<CardGroup cols={3}>
+  <Card title="Composables" icon="shapes">
+    Declarative UI components that render based on state
+  </Card>
+  <Card title="ViewModels" icon="brain">
+    Manage UI state and business logic
+  </Card>
+  <Card title="State Management" icon="workflow">
+    Reactive state updates using StateFlow
+  </Card>
+</CardGroup>
+
+## ViewModels
+
+### StoryViewModel
+
+Manages story-related state and operations:
+
+```kotlin StoryViewModel.kt
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel() {
+
+    private val _stories = MutableStateFlow<List<Story>>(emptyList())
+    val stories: StateFlow<List<Story>> = _stories.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    init {
+        loadStories()
+    }
+
+    private fun loadStories() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            repository.getAllStoriesFlow()
+                .catch { e ->
+                    _errorMessage.value = "Error al cargar historias: ${e.message}"
+                    _isLoading.value = false
+                }
+                .collect { storyList ->
+                    _stories.value = storyList
+                    _isLoading.value = false
+                }
+        }
+    }
+
+    fun loadStoryById(id: String) {
+        viewModelScope.launch {
+            val story = repository.getStoryById(id)
+            _selectedStory.value = story
+        }
+    }
+}
+```
+
+**Key Features:**
+
+- **StateFlow**: Exposes UI state reactively
+- **viewModelScope**: Automatically cancels coroutines on cleanup
+- **Error Handling**: Manages loading and error states
+- **Hilt Integration**: Dependencies injected automatically
+
+### AuthViewModel
+
+Handles authentication state and user operations:
+
+```kotlin AuthViewModel.kt
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+
+    private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
+    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private val _userProfile = MutableStateFlow<UserProfile?>(null)
+    val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+
+    val isLoggedIn: Boolean get() = authRepository.currentUser != null
+
+    init {
+        viewModelScope.launch {
+            authRepository.authState.collect { user ->
+                if (user != null) {
+                    _authState.value = AuthState.Authenticated(user)
+                    loadUserProfile(user.uid)
+                } else {
+                    _authState.value = AuthState.Unauthenticated
+                }
+            }
+        }
+    }
+
+    fun signIn(email: String, password: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepository.signInWithEmailAndPassword(email, password)
+            if (result.isFailure) {
+                _authState.value = AuthState.Error(
+                    result.exceptionOrNull()?.message ?: "Error desconocido"
+                )
+            }
+        }
+    }
+}
+```
+
+### Auth State Sealed Class
+
+```kotlin
+sealed class AuthState {
+    object Loading : AuthState()
+    object Unauthenticated : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+<Info>
+Sealed classes provide type-safe state management with exhaustive when expressions.
+</Info>
+
+## Composable Screens
+
+### StoryListScreen
+
+Displays a list of stories with loading and error states:
+
+```kotlin StoryListScreen.kt
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit = {},
+    onAddStoryClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
+) {
+    val stories by viewModel.stories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Casa de Historias",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Leyendas de la Sierra",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddStoryClick,
+                containerColor = AguaSagrada
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Añadir Historia")
+            }
+        }
+    ) { padding ->
+        when {
+            isLoading -> LoadingState()
+            errorMessage != null -> ErrorState(errorMessage, viewModel::retry)
+            stories.isEmpty() -> EmptyState()
+            else -> StoryList(stories, onStoryClick)
+        }
+    }
+}
+```
+
+### Story Card Component
+
+Reusable card component for displaying stories:
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ModernStoryCard(
+    story: Story,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        shape = RoundedCornerShape(24.dp),
+        onClick = onClick
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background image
+            if (!story.imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = story.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // Gradient overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    NocheProfunda.copy(alpha = 0.95f)
+                                )
+                            )
+                        )
+                )
+            }
+
+            // Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                if (story.titleNahuatl.isNotBlank()) {
+                    Text(
+                        text = story.titleNahuatl,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontStyle = FontStyle.Italic,
+                        color = AguaSagrada
+                    )
+                }
+                
+                Text(
+                    text = story.titleEs,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = LunaLlena
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Person, contentDescription = null)
+                    Text(text = story.narratorName)
+                    Text(" • ")
+                    Text(text = story.community)
+                }
+            }
+        }
+    }
+}
+```
+
+## State Management
+
+### Collecting State in Composables
+
+```kotlin
+@Composable
+fun MyScreen(viewModel: MyViewModel = hiltViewModel()) {
+    // Collect state as Compose State
+    val items by viewModel.items.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    
+    // UI automatically recomposes when state changes
+    if (isLoading) {
+        LoadingIndicator()
+    } else {
+        ItemList(items)
+    }
+}
+```
+
+### LaunchedEffect for Side Effects
+
+```kotlin
+@Composable
+fun StoryDetailScreen(storyId: String, viewModel: StoryViewModel) {
+    // Load story when storyId changes
+    LaunchedEffect(storyId) {
+        viewModel.loadStoryById(storyId)
+    }
+    
+    val story by viewModel.selectedStory.collectAsState()
+    // Render story details
+}
+```
+
+### Handling User Events
+
+```kotlin
+@Composable
+fun LoginScreen(viewModel: AuthViewModel) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    
+    Column {
+        TextField(
+            value = email,
+            onValueChange = { email = it }
+        )
+        TextField(
+            value = password,
+            onValueChange = { password = it }
+        )
+        Button(
+            onClick = {
+                viewModel.signIn(email, password)
+            }
+        ) {
+            Text("Iniciar Sesión")
+        }
+    }
+}
+```
+
+## Main Container
+
+The root composable that sets up navigation and bottom bar:
+
+```kotlin MainContainer.kt
+@Composable
+fun MainContainer() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+
+    val startDestination = if (authViewModel.isLoggedIn) {
+        Screen.Discover.route
+    } else {
+        Screen.Welcome.route
+    }
+
+    val bottomNavItems = listOf(
+        BottomNavItem("Explorar", Screen.Discover.route, 
+            Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+        BottomNavItem("Leyendas", Screen.StoryList.route, 
+            Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
+        BottomNavItem("Mapa", Screen.StoryMap.route, 
+            Icons.Filled.Explore, Icons.Outlined.Explore),
+        BottomNavItem("Favoritos", Screen.Favorites.route, 
+            Icons.Filled.Favorite, Icons.Outlined.FavoriteBorder),
+        BottomNavItem("Perfil", Screen.Profile.route, 
+            Icons.Filled.Person, Icons.Outlined.Person)
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    bottomNavItems.forEach { item ->
+                        NavigationBarItem(
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) },
+                            selected = isSelected,
+                            onClick = { navController.navigate(item.route) }
+                        )
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        NavGraph(
+            navController = navController,
+            authViewModel = authViewModel,
+            startDestination = startDestination
+        )
+    }
+}
+```
+
+## Screen Structure
+
+The app includes these main screens:
+
+- **WelcomeScreen**: Initial onboarding
+- **LoginScreen** / **SignUpScreen**: Authentication
+- **DiscoverScreen**: Featured stories and discovery
+- **StoryListScreen**: All stories in list view
+- **StoryMapScreen**: Stories on a map
+- **StoryDetailScreen**: Individual story details
+- **AddStoryScreen** / **EditStoryScreen**: Story creation/editing
+- **FavoritesScreen**: User's favorite stories
+- **ProfileScreen**: User profile management
+- **SearchScreen**: Story search functionality
+- **DictionaryScreen**: Nahuatl-Spanish dictionary
+- **SettingsScreen**: App settings
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use StateFlow for state">
+    Expose ViewModel state using `StateFlow` and collect it in composables with `collectAsState()`.
+  </Accordion>
+  
+  <Accordion title="Keep composables pure">
+    Composables should be pure functions of their parameters. Move side effects to `LaunchedEffect` or ViewModels.
+  </Accordion>
+  
+  <Accordion title="Hoist state when needed">
+    Lift state to the lowest common ancestor when multiple composables need to share it.
+  </Accordion>
+  
+  <Accordion title="Use remember for local state">
+    Use `remember` for UI-only state that doesn't need to survive configuration changes.
+  </Accordion>
+  
+  <Accordion title="Extract reusable components">
+    Create small, reusable composables for common UI patterns.
+  </Accordion>
+</AccordionGroup>
+
+## Testing
+
+### ViewModel Testing
+
+```kotlin
+class StoryViewModelTest {
+    @Test
+    fun `loadStories updates state correctly`() = runTest {
+        val repository = FakeStoryRepository()
+        val viewModel = StoryViewModel(repository)
+        
+        viewModel.stories.test {
+            assertThat(awaitItem()).isEmpty()
+            repository.emitStories(testStories)
+            assertThat(awaitItem()).isEqualTo(testStories)
+        }
+    }
+}
+```
+
+### Composable Testing
+
+```kotlin
+class StoryListScreenTest {
+    @Test
+    fun displaysStories() {
+        composeTestRule.setContent {
+            StoryListScreen(
+                viewModel = testViewModel,
+                onStoryClick = {}
+            )
+        }
+        
+        composeTestRule
+            .onNodeWithText("Casa de Historias")
+            .assertIsDisplayed()
+    }
+}
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Navigation" icon="route" href="/architecture/navigation">
+    Learn about navigation setup
+  </Card>
+  <Card title="Data Layer" icon="database" href="/architecture/data-layer">
+    Understand how ViewModels use repositories
+  </Card>
+</CardGroup>

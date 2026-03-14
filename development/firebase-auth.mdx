@@ -1,0 +1,377 @@
+---
+title: Firebase Authentication
+description: User authentication and profile management in Casa de Historias
+icon: user-shield
+---
+
+## Overview
+
+Casa de Historias uses Firebase Authentication for user management, supporting email/password authentication. The `AuthRepository` handles authentication state, user profiles, and session management.
+
+## AuthRepository
+
+Location: `data/firebase/AuthRepository.kt:16`
+
+The repository is implemented as a Singleton and integrates both Firebase Auth and Firestore:
+
+```kotlin
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+)
+```
+
+## User Profile Model
+
+Location: `data/firebase/model/UserProfile.kt:6`
+
+```kotlin
+data class UserProfile(
+    @DocumentId
+    val id: String = "",
+    val email: String = "",
+    val displayName: String = "",
+    val photoUrl: String? = null,
+    val community: String = "",
+    val isStoryteller: Boolean = false,
+    val favoriteStories: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now(),
+    val lastLogin: Timestamp = Timestamp.now()
+)
+```
+
+<AccordionGroup>
+  <Accordion title="Field Descriptions">
+    | Field | Type | Description |
+    |-------|------|-------------|
+    | id | String | User ID from Firebase Auth |
+    | email | String | User's email address |
+    | displayName | String | User's display name |
+    | photoUrl | String? | Profile photo URL (optional) |
+    | community | String | User's indigenous community |
+    | isStoryteller | Boolean | Whether user can create stories |
+    | favoriteStories | List\<String\> | Story IDs marked as favorites |
+    | createdAt | Timestamp | Account creation time |
+    | lastLogin | Timestamp | Last login timestamp |
+  </Accordion>
+</AccordionGroup>
+
+## Authentication State
+
+### Current User
+
+Location: `data/firebase/AuthRepository.kt:21`
+
+Access the currently authenticated user:
+
+```kotlin
+val currentUser: FirebaseUser? get() = auth.currentUser
+```
+
+### Auth State Flow
+
+Location: `data/firebase/AuthRepository.kt:23`
+
+Observe authentication state changes in real-time:
+
+```kotlin
+val authState: Flow<FirebaseUser?> = callbackFlow {
+    val listener = FirebaseAuth.AuthStateListener { auth ->
+        trySend(auth.currentUser)
+    }
+    auth.addAuthStateListener(listener)
+    awaitClose { auth.removeAuthStateListener(listener) }
+}
+```
+
+<Tip>
+Use `authState` Flow in your ViewModels to automatically update UI when users sign in or out.
+</Tip>
+
+**Example Usage:**
+
+```kotlin
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    
+    val isAuthenticated = authRepository.authState
+        .map { it != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+}
+```
+
+## Authentication Operations
+
+### Sign In
+
+Location: `data/firebase/AuthRepository.kt:31`
+
+```kotlin
+suspend fun signInWithEmailAndPassword(email: String, password: String): Result<FirebaseUser?> {
+    return try {
+        val result = auth.signInWithEmailAndPassword(email, password).await()
+        updateLastLogin(result.user?.uid)
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+<Note>
+The method automatically updates the user's `lastLogin` timestamp in Firestore upon successful authentication.
+</Note>
+
+**Common Error Codes:**
+
+- `FirebaseAuthInvalidCredentialsException` - Wrong password
+- `FirebaseAuthInvalidUserException` - User doesn't exist
+- `FirebaseAuthEmailException` - Invalid email format
+
+### Create Account
+
+Location: `data/firebase/AuthRepository.kt:41`
+
+```kotlin
+suspend fun createUserWithEmailAndPassword(
+    email: String, 
+    password: String,
+    displayName: String,
+    community: String
+): Result<FirebaseUser?> {
+    return try {
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        result.user?.let { user ->
+            createUserProfile(user.uid, email, displayName, community)
+        }
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+<Warning>
+Always create a corresponding Firestore user profile when creating a new authentication account. The app relies on this profile for user-specific data.
+</Warning>
+
+### Create User Profile
+
+Location: `data/firebase/AuthRepository.kt:83`
+
+This private method creates a Firestore document with the user's profile:
+
+```kotlin
+private suspend fun createUserProfile(
+    userId: String, 
+    email: String, 
+    displayName: String,
+    community: String
+) {
+    val profile = UserProfile(
+        id = userId,
+        email = email,
+        displayName = displayName,
+        community = community,
+        createdAt = Timestamp.now(),
+        lastLogin = Timestamp.now()
+    )
+    firestore.collection("users").document(userId).set(profile).await()
+}
+```
+
+### Sign Out
+
+Location: `data/firebase/AuthRepository.kt:58`
+
+```kotlin
+suspend fun signOut() {
+    auth.signOut()
+}
+```
+
+## Profile Management
+
+### Get User Profile
+
+Location: `data/firebase/AuthRepository.kt:62`
+
+```kotlin
+suspend fun getUserProfile(userId: String): UserProfile? {
+    return try {
+        val document = firestore.collection("users").document(userId).get().await()
+        document.toObject(UserProfile::class.java)
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+### Update User Profile
+
+Location: `data/firebase/AuthRepository.kt:71`
+
+```kotlin
+suspend fun updateUserProfile(userId: String, profile: UserProfile): Boolean {
+    return try {
+        firestore.collection("users")
+            .document(userId)
+            .set(profile.copy(id = userId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+### Update Last Login
+
+Location: `data/firebase/AuthRepository.kt:100`
+
+Automatically called on successful sign-in:
+
+```kotlin
+private suspend fun updateLastLogin(userId: String?) {
+    userId?.let {
+        firestore.collection("users")
+            .document(it)
+            .update("lastLogin", Timestamp.now())
+            .await()
+    }
+}
+```
+
+## User Types
+
+### Regular Users
+
+Default users can:
+- Browse and read stories
+- Mark stories as favorites
+- View their profile
+
+### Storytellers
+
+Users with `isStoryteller = true` can additionally:
+- Create new stories
+- Edit their own stories
+- Upload audio and images
+- Publish/unpublish stories
+
+<Tip>
+Implement role-based UI by checking the `isStoryteller` flag in the user profile.
+</Tip>
+
+**Example:**
+
+```kotlin
+val canCreateStories = remember(userProfile) {
+    userProfile?.isStoryteller == true
+}
+
+if (canCreateStories) {
+    FloatingActionButton(
+        onClick = { navController.navigate("create_story") }
+    ) {
+        Icon(Icons.Default.Add, "Create Story")
+    }
+}
+```
+
+## Security Considerations
+
+<AccordionGroup>
+  <Accordion title="Password Requirements">
+    Firebase Auth enforces:
+    - Minimum 6 characters
+    - No complexity requirements by default
+    
+    Consider implementing client-side validation for stronger passwords:
+    - At least 8 characters
+    - Mix of uppercase, lowercase, and numbers
+    - Special characters recommended
+  </Accordion>
+  
+  <Accordion title="Firestore Security Rules">
+    Ensure your Firestore security rules protect user data:
+    
+    ```javascript
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /users/{userId} {
+          // Users can read their own profile
+          allow read: if request.auth != null && request.auth.uid == userId;
+          
+          // Only allow updating specific fields
+          allow update: if request.auth != null && 
+                           request.auth.uid == userId &&
+                           request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['displayName', 'photoUrl', 'favoriteStories']);
+          
+          // Prevent creating/deleting user documents (handled by Cloud Functions)
+          allow create, delete: if false;
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Email Verification">
+    The current implementation doesn't require email verification. Consider adding it for production:
+    
+    ```kotlin
+    suspend fun sendEmailVerification(): Boolean {
+        return try {
+            auth.currentUser?.sendEmailVerification()?.await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+All authentication methods return Kotlin `Result` types:
+
+```kotlin
+viewModelScope.launch {
+    authRepository.signInWithEmailAndPassword(email, password)
+        .onSuccess { user ->
+            // Navigate to home screen
+            navController.navigate("home")
+        }
+        .onFailure { exception ->
+            when (exception) {
+                is FirebaseAuthInvalidCredentialsException -> 
+                    errorMessage = "Invalid email or password"
+                is FirebaseAuthInvalidUserException -> 
+                    errorMessage = "No account found with this email"
+                else -> 
+                    errorMessage = "Authentication failed: ${exception.message}"
+            }
+        }
+}
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Firestore Database" icon="database" href="/development/firestore">
+    Learn about data storage and querying
+  </Card>
+  <Card title="Firebase Storage" icon="cloud-arrow-up" href="/development/firebase-storage">
+    Understand media file management
+  </Card>
+</CardGroup>

@@ -1,0 +1,205 @@
+---
+title: "AuthRepository"
+description: "Repository for Firebase authentication and user profile management"
+---
+
+## Overview
+
+The `AuthRepository` class manages Firebase authentication operations and user profile data. It provides methods for sign in, sign up, sign out, and user profile management.
+
+## Declaration
+
+```kotlin
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+)
+```
+
+**Package:** `com.example.casadehistorias.data.firebase`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:16`
+
+## Annotations
+
+- `@Singleton` - Ensures only one instance exists throughout the app lifecycle
+- `@Inject` - Enables dependency injection via Hilt
+
+## Properties
+
+### currentUser
+
+```kotlin
+val currentUser: FirebaseUser? get() = auth.currentUser
+```
+
+Gets the currently authenticated Firebase user.
+
+**Type:** `FirebaseUser?`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:21`
+
+### authState
+
+```kotlin
+val authState: Flow<FirebaseUser?>
+```
+
+Flow that emits the current authentication state whenever it changes.
+
+**Type:** `Flow<FirebaseUser?>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:23`
+
+## Methods
+
+### signInWithEmailAndPassword
+
+```kotlin
+suspend fun signInWithEmailAndPassword(
+    email: String, 
+    password: String
+): Result<FirebaseUser?>
+```
+
+Authenticates a user with email and password.
+
+<ParamField path="email" type="String" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  User's password
+</ParamField>
+
+**Returns:** `Result<FirebaseUser?>` - Result containing the authenticated user on success, or exception on failure
+
+**Side effects:** Updates the user's last login timestamp in Firestore
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:31`
+
+### createUserWithEmailAndPassword
+
+```kotlin
+suspend fun createUserWithEmailAndPassword(
+    email: String, 
+    password: String,
+    displayName: String,
+    community: String
+): Result<FirebaseUser?>
+```
+
+Creates a new user account with email and password.
+
+<ParamField path="email" type="String" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  User's password
+</ParamField>
+
+<ParamField path="displayName" type="String" required>
+  User's display name
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  User's community name
+</ParamField>
+
+**Returns:** `Result<FirebaseUser?>` - Result containing the created user on success, or exception on failure
+
+**Side effects:** Creates a user profile document in Firestore
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:41`
+
+### signOut
+
+```kotlin
+suspend fun signOut()
+```
+
+Signs out the current user.
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:58`
+
+### getUserProfile
+
+```kotlin
+suspend fun getUserProfile(userId: String): UserProfile?
+```
+
+Retrieves a user's profile from Firestore.
+
+<ParamField path="userId" type="String" required>
+  The Firebase user ID
+</ParamField>
+
+**Returns:** `UserProfile?` - The user profile if found, null if not found or error occurred
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:62`
+
+### updateUserProfile
+
+```kotlin
+suspend fun updateUserProfile(userId: String, profile: UserProfile): Boolean
+```
+
+Updates a user's profile in Firestore.
+
+<ParamField path="userId" type="String" required>
+  The Firebase user ID
+</ParamField>
+
+<ParamField path="profile" type="UserProfile" required>
+  The updated user profile data
+</ParamField>
+
+**Returns:** `Boolean` - true if update successful, false otherwise
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/AuthRepository.kt:71`
+
+## Private Methods
+
+The repository includes private helper methods:
+
+- `createUserProfile()` - Creates initial user profile document
+- `updateLastLogin()` - Updates user's last login timestamp
+
+## Usage Example
+
+```kotlin
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+
+    fun signIn(email: String, password: String) {
+        viewModelScope.launch {
+            val result = authRepository.signInWithEmailAndPassword(email, password)
+            if (result.isSuccess) {
+                // Handle successful login
+            } else {
+                // Handle error: result.exceptionOrNull()?.message
+            }
+        }
+    }
+    
+    fun observeAuthState() {
+        viewModelScope.launch {
+            authRepository.authState.collect { user ->
+                if (user != null) {
+                    // User is authenticated
+                } else {
+                    // User is not authenticated
+                }
+            }
+        }
+    }
+}
+```
+
+## Related
+
+- [UserProfile](/api/models/user-profile) - User profile data model
+- [AuthViewModel](/api/viewmodels/auth-viewmodel) - ViewModel for authentication

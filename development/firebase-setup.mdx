@@ -1,0 +1,611 @@
+---
+title: 'Firebase Setup'
+description: 'Configure Firebase services for Casa de Historias'
+icon: 'fire'
+---
+
+Casa de Historias relies on Firebase for backend services including authentication, database, and cloud storage. This guide will help you set up and configure Firebase for development and production.
+
+## Firebase Services Used
+
+The app integrates the following Firebase services from `app/build.gradle.kts:58-64`:
+
+<CardGroup cols={2}>
+  <Card title="Firestore" icon="database">
+    **NoSQL Database**
+    
+    Stores stories, user profiles, and favorites
+  </Card>
+  
+  <Card title="Authentication" icon="lock">
+    **User Authentication**
+    
+    Email/password and social login
+  </Card>
+  
+  <Card title="Cloud Storage" icon="folder">
+    **File Storage**
+    
+    Images and audio files for stories
+  </Card>
+  
+  <Card title="Analytics" icon="chart-line">
+    **App Analytics**
+    
+    User engagement and behavior tracking
+  </Card>
+</CardGroup>
+
+## Firebase Configuration
+
+The project uses Firebase BOM (Bill of Materials) version 33.5.1 for consistent versioning across all Firebase libraries.
+
+### Dependencies
+
+From `app/build.gradle.kts:59-63`:
+
+```kotlin
+implementation(platform(libs.firebase.bom))
+implementation(libs.firebase.analytics)
+implementation(libs.firebase.firestore)
+implementation(libs.firebase.auth)
+implementation(libs.firebase.storage)
+```
+
+### Google Services Plugin
+
+The Google Services plugin is applied in `app/build.gradle.kts:7`:
+
+```kotlin
+plugins {
+    // ... other plugins
+    alias(libs.plugins.google.services)
+}
+```
+
+This plugin processes the `google-services.json` configuration file.
+
+## Initial Firebase Setup
+
+<Steps>
+  <Step title="Create a Firebase Project">
+    1. Go to the [Firebase Console](https://console.firebase.google.com)
+    2. Click **Add project**
+    3. Enter project name: `Casa de Historias` (or your preferred name)
+    4. Choose whether to enable Google Analytics (recommended)
+    5. Select or create an Analytics account
+    6. Click **Create project**
+  </Step>
+  
+  <Step title="Register Android App">
+    In your Firebase project:
+    
+    1. Click the Android icon to add an Android app
+    2. Enter the package name: `com.example.casadehistorias`
+    3. (Optional) Add app nickname: "Casa de Historias"
+    4. (Optional) Add SHA-1 certificate for authentication
+    5. Click **Register app**
+    
+    <Note>
+      The package name must match the `applicationId` in `app/build.gradle.kts:15`
+    </Note>
+  </Step>
+  
+  <Step title="Download google-services.json">
+    1. Download the `google-services.json` file
+    2. Move it to the `app/` directory of your project:
+    
+    ```plaintext
+    app-leyendas/
+    └── app/
+        └── google-services.json  ← Place file here
+    ```
+    
+    <Warning>
+      This file contains API keys and should be added to `.gitignore` if you're using a public repository. For this project, a sample file is included.
+    </Warning>
+  </Step>
+  
+  <Step title="Verify Configuration">
+    The `google-services.json` file should look similar to this structure:
+    
+    ```json
+    {
+      "project_info": {
+        "project_number": "729347267782",
+        "project_id": "casa-de-historias",
+        "storage_bucket": "casa-de-historias.firebasestorage.app"
+      },
+      "client": [
+        {
+          "client_info": {
+            "mobilesdk_app_id": "1:729347267782:android:ba609d00e1ddf3ffa78bc7",
+            "android_client_info": {
+              "package_name": "com.example.casadehistorias"
+            }
+          },
+          // ... additional configuration
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Sync Project">
+    After adding the file:
+    
+    1. Click **File** → **Sync Project with Gradle Files** in Android Studio
+    2. Verify no errors appear in the build output
+    3. Build the project:
+    
+    ```bash
+    ./gradlew build
+    ```
+  </Step>
+</Steps>
+
+## Configure Firebase Services
+
+### Firestore Database
+
+<Steps>
+  <Step title="Enable Firestore">
+    In the Firebase Console:
+    
+    1. Navigate to **Firestore Database**
+    2. Click **Create database**
+    3. Select **Start in test mode** for development
+    4. Choose a database location (e.g., `us-central1`)
+    5. Click **Enable**
+  </Step>
+  
+  <Step title="Set Security Rules">
+    Configure security rules for development:
+    
+    ```javascript
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        // Stories collection - public read, authenticated write
+        match /stories/{storyId} {
+          allow read: if true;
+          allow write: if request.auth != null;
+        }
+        
+        // User profiles - owner only
+        match /users/{userId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        
+        // Favorites - owner only
+        match /users/{userId}/favorites/{favoriteId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+    ```
+    
+    <Warning>
+      These rules are for development. For production, implement stricter validation and authentication checks.
+    </Warning>
+  </Step>
+  
+  <Step title="Create Collections">
+    Create the main collections in Firestore:
+    
+    - `stories`: Story documents
+    - `users`: User profile documents
+    - `nahuatl_terms`: Nahuatl dictionary entries
+    
+    You can create these manually in the console or they'll be created automatically when the app writes data.
+  </Step>
+</Steps>
+
+### Authentication
+
+<Steps>
+  <Step title="Enable Sign-in Methods">
+    1. Navigate to **Authentication** → **Sign-in method**
+    2. Enable **Email/Password**:
+       - Click on **Email/Password**
+       - Toggle **Enable**
+       - Click **Save**
+    3. (Optional) Enable additional providers:
+       - Google Sign-In
+       - Facebook
+       - Anonymous authentication
+  </Step>
+  
+  <Step title="Configure Email Templates">
+    Customize email templates for password reset and verification:
+    
+    1. Go to **Authentication** → **Templates**
+    2. Customize:
+       - Password reset email
+       - Email address verification
+       - Email address change notification
+  </Step>
+  
+  <Step title="Get SHA-1 Certificate" >
+    For Google Sign-In, you need the SHA-1 certificate:
+    
+    **Debug certificate** (for development):
+    ```bash
+    keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+    ```
+    
+    **Release certificate** (for production):
+    ```bash
+    keytool -list -v -keystore /path/to/your-keystore.jks -alias your-key-alias
+    ```
+    
+    Add the SHA-1 fingerprint in Firebase Console:
+    1. Go to **Project settings**
+    2. Select your Android app
+    3. Click **Add fingerprint**
+    4. Paste the SHA-1 hash
+  </Step>
+</Steps>
+
+### Cloud Storage
+
+<Steps>
+  <Step title="Enable Storage">
+    1. Navigate to **Storage** in Firebase Console
+    2. Click **Get started**
+    3. Review security rules
+    4. Choose a storage location
+    5. Click **Done**
+  </Step>
+  
+  <Step title="Configure Storage Rules">
+    Set up storage security rules:
+    
+    ```javascript
+    rules_version = '2';
+    service firebase.storage {
+      match /b/{bucket}/o {
+        // Story images and audio
+        match /stories/{storyId}/{allPaths=**} {
+          allow read: if true;
+          allow write: if request.auth != null;
+        }
+        
+        // User profile images
+        match /users/{userId}/profile/{allPaths=**} {
+          allow read: if true;
+          allow write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Organize Storage Structure">
+    Create the following folder structure in Storage:
+    
+    ```plaintext
+    stories/
+    ├── {storyId}/
+    │   ├── images/
+    │   │   └── cover.jpg
+    │   └── audio/
+    │       └── narration.mp3
+    users/
+    └── {userId}/
+        └── profile/
+            └── avatar.jpg
+    ```
+  </Step>
+</Steps>
+
+## Firebase Configuration File
+
+The `google-services.json` file from `app/google-services.json:1-29` contains:
+
+<Accordion title="Project Information" icon="info-circle">
+  ```json
+  "project_info": {
+    "project_number": "729347267782",
+    "project_id": "casa-de-historias",
+    "storage_bucket": "casa-de-historias.firebasestorage.app"
+  }
+  ```
+  
+  - **project_number**: Unique Firebase project identifier
+  - **project_id**: Human-readable project ID
+  - **storage_bucket**: Cloud Storage bucket URL
+</Accordion>
+
+<Accordion title="Client Configuration" icon="mobile">
+  ```json
+  "client_info": {
+    "mobilesdk_app_id": "1:729347267782:android:ba609d00e1ddf3ffa78bc7",
+    "android_client_info": {
+      "package_name": "com.example.casadehistorias"
+    }
+  }
+  ```
+  
+  - **mobilesdk_app_id**: Unique app identifier within the project
+  - **package_name**: Must match your app's `applicationId`
+</Accordion>
+
+<Accordion title="API Keys" icon="key">
+  ```json
+  "api_key": [
+    {
+      "current_key": "AIzaSyAAwXUmaQRQyeOguE8WsCtYXAtEoCDZNuY"
+    }
+  ]
+  ```
+  
+  This API key is used for Firebase service authentication. It's safe to include in your app as Firebase security is enforced through security rules, not API key restrictions.
+</Accordion>
+
+## Environment-Specific Configuration
+
+For managing multiple environments (dev, staging, production):
+
+### Using Build Variants
+
+<Steps>
+  <Step title="Create Product Flavors">
+    Add to `app/build.gradle.kts`:
+    
+    ```kotlin
+    android {
+        flavorDimensions += "environment"
+        
+        productFlavors {
+            create("dev") {
+                dimension = "environment"
+                applicationIdSuffix = ".dev"
+            }
+            
+            create("prod") {
+                dimension = "environment"
+            }
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Add Multiple Configuration Files">
+    Place environment-specific config files:
+    
+    ```plaintext
+    app/
+    ├── src/
+    │   ├── dev/
+    │   │   └── google-services.json    # Dev Firebase project
+    │   └── prod/
+    │       └── google-services.json    # Production Firebase project
+    ```
+  </Step>
+  
+  <Step title="Build Specific Variants">
+    ```bash
+    # Build dev variant
+    ./gradlew assembleDevDebug
+    
+    # Build production variant
+    ./gradlew assembleProdRelease
+    ```
+  </Step>
+</Steps>
+
+## Testing Firebase Integration
+
+### Verify Firestore Connection
+
+Test Firestore connectivity:
+
+```kotlin
+val db = Firebase.firestore
+db.collection("stories")
+    .get()
+    .addOnSuccessListener { documents ->
+        Log.d("Firebase", "Successfully connected to Firestore")
+        Log.d("Firebase", "Found ${documents.size()} stories")
+    }
+    .addOnFailureListener { exception ->
+        Log.e("Firebase", "Error connecting to Firestore", exception)
+    }
+```
+
+### Verify Authentication
+
+Test authentication setup:
+
+```kotlin
+Firebase.auth.createUserWithEmailAndPassword("test@example.com", "password123")
+    .addOnSuccessListener {
+        Log.d("Firebase", "User created successfully")
+    }
+    .addOnFailureListener { exception ->
+        Log.e("Firebase", "Authentication error", exception)
+    }
+```
+
+### Verify Storage
+
+Test storage upload:
+
+```kotlin
+val storage = Firebase.storage
+val storageRef = storage.reference
+val testRef = storageRef.child("test/test.txt")
+
+val data = "Hello, Firebase Storage!".toByteArray()
+testRef.putBytes(data)
+    .addOnSuccessListener {
+        Log.d("Firebase", "File uploaded successfully")
+    }
+    .addOnFailureListener { exception ->
+        Log.e("Firebase", "Upload failed", exception)
+    }
+```
+
+## Firebase Emulator Suite (Optional)
+
+For local development without consuming Firebase quota:
+
+<Steps>
+  <Step title="Install Firebase CLI">
+    ```bash
+    npm install -g firebase-tools
+    ```
+  </Step>
+  
+  <Step title="Initialize Firebase">
+    ```bash
+    firebase init emulators
+    ```
+    
+    Select:
+    - Authentication Emulator (port 9099)
+    - Firestore Emulator (port 8080)
+    - Storage Emulator (port 9199)
+  </Step>
+  
+  <Step title="Start Emulators">
+    ```bash
+    firebase emulators:start
+    ```
+  </Step>
+  
+  <Step title="Configure App to Use Emulators">
+    Add to your app's initialization code:
+    
+    ```kotlin
+    if (BuildConfig.DEBUG) {
+        Firebase.auth.useEmulator("10.0.2.2", 9099)
+        Firebase.firestore.useEmulator("10.0.2.2", 8080)
+        Firebase.storage.useEmulator("10.0.2.2", 9199)
+    }
+    ```
+    
+    <Note>
+      `10.0.2.2` is the special IP for Android emulator to access localhost.
+    </Note>
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="google-services.json not found error">
+    **Error**: `File google-services.json is missing`
+    
+    **Solution**:
+    1. Verify the file is in the `app/` directory
+    2. Check the file name is exactly `google-services.json`
+    3. Sync Gradle: **File** → **Sync Project with Gradle Files**
+    4. Clean and rebuild:
+    ```bash
+    ./gradlew clean build
+    ```
+  </Accordion>
+  
+  <Accordion title="Package name mismatch">
+    **Error**: `No matching client found for package name`
+    
+    **Solution**:
+    1. Verify `applicationId` in `app/build.gradle.kts:15` matches the package name in Firebase Console
+    2. Download a new `google-services.json` with the correct package name
+    3. Or update the package name in Firebase Console to match your app
+  </Accordion>
+  
+  <Accordion title="Firebase initialization failed">
+    **Error**: `FirebaseApp initialization unsuccessful`
+    
+    **Solution**:
+    1. Ensure Google Services plugin is applied in `app/build.gradle.kts:7`
+    2. Check that `google-services.json` is valid JSON
+    3. Verify Firebase dependencies are properly declared
+    4. Check for version conflicts in dependency tree:
+    ```bash
+    ./gradlew :app:dependencies
+    ```
+  </Accordion>
+  
+  <Accordion title="Authentication errors">
+    **Error**: `Error 10: developer-error` or SHA-1 errors
+    
+    **Solution**:
+    1. Add your SHA-1 certificate to Firebase Console
+    2. For debug builds, use the debug keystore SHA-1
+    3. Download a new `google-services.json` after adding SHA-1
+    4. Ensure Google Sign-In is enabled in Firebase Console
+  </Accordion>
+  
+  <Accordion title="Firestore permission denied">
+    **Error**: `PERMISSION_DENIED: Missing or insufficient permissions`
+    
+    **Solution**:
+    1. Check Firestore security rules allow the operation
+    2. Verify user is authenticated for write operations
+    3. For development, temporarily use:
+    ```javascript
+    allow read, write: if true;
+    ```
+    4. Remember to secure rules before production
+  </Accordion>
+</AccordionGroup>
+
+## Security Best Practices
+
+<Warning>
+  Always follow these security guidelines when working with Firebase:
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Security Rules" icon="shield">
+    - Never use `allow read, write: if true` in production
+    - Validate all data before writing
+    - Use authentication for sensitive operations
+    - Test rules thoroughly
+  </Card>
+  
+  <Card title="API Keys" icon="key">
+    - Firebase API keys can be public
+    - Security is enforced through rules, not API keys
+    - Use App Check for additional security
+    - Monitor usage in Firebase Console
+  </Card>
+  
+  <Card title="Authentication" icon="user-lock">
+    - Implement email verification
+    - Use strong password requirements
+    - Enable multi-factor authentication
+    - Monitor suspicious authentication attempts
+  </Card>
+  
+  <Card title="Data Access" icon="database">
+    - Follow principle of least privilege
+    - Separate dev and production projects
+    - Regular security rule audits
+    - Use Firebase App Distribution for testing
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Firestore Integration" icon="database" href="/development/firestore">
+    Learn how to work with Firestore in the app
+  </Card>
+  
+  <Card title="Firebase Authentication" icon="lock" href="/development/firebase-auth">
+    Implement authentication flows
+  </Card>
+  
+  <Card title="Firebase Storage" icon="folder" href="/development/firebase-storage">
+    Upload and manage files in Cloud Storage
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap" href="/architecture/data-layer">
+    Understand the data layer architecture
+  </Card>
+</CardGroup>

@@ -1,0 +1,113 @@
+---
+title: "UserProfile"
+description: "Firebase model representing a user's profile information"
+---
+
+## Overview
+
+The `UserProfile` data class represents a user's profile information stored in Firebase Firestore. It includes authentication details, community affiliation, storyteller status, and favorite stories.
+
+## Declaration
+
+```kotlin
+data class UserProfile(
+    @DocumentId
+    val id: String = "",
+    val email: String = "",
+    val displayName: String = "",
+    val photoUrl: String? = null,
+    val community: String = "",
+    val isStoryteller: Boolean = false,
+    val favoriteStories: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now(),
+    val lastLogin: Timestamp = Timestamp.now()
+)
+```
+
+**Package:** `com.example.casadehistorias.data.firebase.model`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/model/UserProfile.kt:6`
+
+## Properties
+
+<ParamField path="id" type="String" default='""'>
+  Unique user identifier. Automatically populated from Firestore document ID via `@DocumentId` annotation
+</ParamField>
+
+<ParamField path="email" type="String" default='""'>
+  User's email address
+</ParamField>
+
+<ParamField path="displayName" type="String" default='""'>
+  User's display name shown in the app
+</ParamField>
+
+<ParamField path="photoUrl" type="String?" default="null">
+  Optional URL to the user's profile photo
+</ParamField>
+
+<ParamField path="community" type="String" default='""'>
+  Name of the community the user belongs to
+</ParamField>
+
+<ParamField path="isStoryteller" type="Boolean" default="false">
+  Whether the user is registered as a storyteller (can create stories)
+</ParamField>
+
+<ParamField path="favoriteStories" type="List<String>" default="emptyList()">
+  List of story IDs that the user has marked as favorites
+</ParamField>
+
+<ParamField path="createdAt" type="Timestamp" default="Timestamp.now()">
+  Firebase Timestamp when the user profile was created
+</ParamField>
+
+<ParamField path="lastLogin" type="Timestamp" default="Timestamp.now()">
+  Firebase Timestamp of the user's last login
+</ParamField>
+
+## Annotations
+
+- `@DocumentId` - Firebase Firestore annotation that automatically maps the document ID to the `id` field
+
+## Usage Example
+
+```kotlin
+import com.google.firebase.Timestamp
+
+val userProfile = UserProfile(
+    id = "user123",
+    email = "maria@example.com",
+    displayName = "María González",
+    photoUrl = "https://storage.googleapis.com/profiles/user123.jpg",
+    community = "Tepoztlán",
+    isStoryteller = true,
+    favoriteStories = listOf("story1", "story2", "story3"),
+    createdAt = Timestamp.now(),
+    lastLogin = Timestamp.now()
+)
+```
+
+## Firebase Integration
+
+This model is designed to work seamlessly with Firebase Firestore:
+
+```kotlin
+// Saving to Firestore
+firestore.collection("users")
+    .document(userId)
+    .set(userProfile)
+    .await()
+
+// Reading from Firestore
+val document = firestore.collection("users")
+    .document(userId)
+    .get()
+    .await()
+val profile = document.toObject(UserProfile::class.java)
+```
+
+## Related
+
+- [AuthRepository](/api/repositories/auth-repository) - Repository for authentication and user profile management
+- [AuthViewModel](/api/viewmodels/auth-viewmodel) - ViewModel for authentication state

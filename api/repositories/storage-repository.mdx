@@ -1,0 +1,152 @@
+---
+title: "StorageRepository"
+description: "Repository for Firebase Cloud Storage file operations"
+---
+
+## Overview
+
+The `StorageRepository` class manages file uploads and deletions in Firebase Cloud Storage. It handles image and audio file operations for stories.
+
+## Declaration
+
+```kotlin
+@Singleton
+class StorageRepository @Inject constructor(
+    private val storage: FirebaseStorage
+)
+```
+
+**Package:** `com.example.casadehistorias.data.firebase`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/StorageRepository.kt:10`
+
+## Annotations
+
+- `@Singleton` - Ensures only one instance exists throughout the app lifecycle
+- `@Inject` - Enables dependency injection via Hilt
+
+## Methods
+
+### uploadImage
+
+```kotlin
+suspend fun uploadImage(uri: Uri, storyId: String): String?
+```
+
+Uploads an image file to Firebase Storage.
+
+<ParamField path="uri" type="Uri" required>
+  Android URI of the image file to upload
+</ParamField>
+
+<ParamField path="storyId" type="String" required>
+  The story ID to associate the image with
+</ParamField>
+
+**Returns:** `String?` - Download URL of the uploaded image if successful, null on error
+
+**Storage Path:** `stories/{storyId}/cover.jpg`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/StorageRepository.kt:14`
+
+### uploadAudio
+
+```kotlin
+suspend fun uploadAudio(uri: Uri, storyId: String): String?
+```
+
+Uploads an audio file to Firebase Storage.
+
+<ParamField path="uri" type="Uri" required>
+  Android URI of the audio file to upload
+</ParamField>
+
+<ParamField path="storyId" type="String" required>
+  The story ID to associate the audio with
+</ParamField>
+
+**Returns:** `String?` - Download URL of the uploaded audio if successful, null on error
+
+**Storage Path:** `stories/{storyId}/audio.mp3`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/StorageRepository.kt:24`
+
+### deleteFile
+
+```kotlin
+suspend fun deleteFile(url: String): Boolean
+```
+
+Deletes a file from Firebase Storage using its download URL.
+
+<ParamField path="url" type="String" required>
+  The Firebase Storage download URL of the file to delete
+</ParamField>
+
+**Returns:** `Boolean` - true if deletion successful, false on error
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/firebase/StorageRepository.kt:34`
+
+## Usage Example
+
+```kotlin
+class AddStoryViewModel @Inject constructor(
+    private val storageRepository: StorageRepository,
+    private val storyRepository: StoryRepository
+) : ViewModel() {
+
+    fun uploadStoryWithImage(imageUri: Uri, storyData: Story) {
+        viewModelScope.launch {
+            // Generate temporary ID for storage path
+            val tempId = UUID.randomUUID().toString()
+            
+            // Upload image
+            val imageUrl = storageRepository.uploadImage(imageUri, tempId)
+            
+            if (imageUrl != null) {
+                // Create story with image URL
+                val story = storyData.copy(imageUrl = imageUrl)
+                val storyId = storyRepository.addStory(story)
+                // Handle success
+            } else {
+                // Handle upload error
+            }
+        }
+    }
+    
+    fun deleteStoryFiles(story: Story) {
+        viewModelScope.launch {
+            story.imageUrl?.let { url ->
+                storageRepository.deleteFile(url)
+            }
+            story.audioUrl?.let { url ->
+                storageRepository.deleteFile(url)
+            }
+        }
+    }
+}
+```
+
+## File Organization
+
+Files are organized in Firebase Storage as follows:
+
+```
+stories/
+  {storyId}/
+    cover.jpg    (story cover image)
+    audio.mp3    (story narration audio)
+```
+
+## Error Handling
+
+All methods return null or false on error rather than throwing exceptions. Common error scenarios:
+
+- Network connectivity issues
+- Insufficient permissions
+- Invalid file URIs
+- Storage quota exceeded
+
+## Related
+
+- [AddStoryViewModel](/api/viewmodels/add-story-viewmodel) - ViewModel using this repository for story creation

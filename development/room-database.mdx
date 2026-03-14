@@ -1,0 +1,520 @@
+---
+title: Room Database
+description: Local data persistence with Room for offline functionality in Casa de Historias
+icon: hard-drive
+---
+
+## Overview
+
+Casa de Historias uses Room, Android's SQLite abstraction library, to provide offline access to stories. Room enables users to:
+- Browse stories without an internet connection
+- Cache downloaded stories locally
+- Mark stories as favorites offline
+
+## Architecture Components
+
+The Room implementation consists of three main components:
+
+1. **Database:** `AppDatabase` - The main database holder
+2. **Entity:** `StoryEntity` - The data model for local storage
+3. **DAO:** `StoryDao` - Data Access Object for database operations
+
+## AppDatabase
+
+Location: `data/local/AppDatabase.kt:8`
+
+```kotlin
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Database Configuration">
+    | Property | Value | Description |
+    |----------|-------|-------------|
+    | entities | `[StoryEntity::class]` | Tables in the database |
+    | version | `1` | Schema version for migrations |
+    | exportSchema | `false` | Disables schema export |
+  </Accordion>
+  
+  <Accordion title="Database Initialization">
+    The database is typically initialized in a Hilt module:
+    
+    ```kotlin
+    @Module
+    @InstallIn(SingletonComponent::class)
+    object DatabaseModule {
+        
+        @Provides
+        @Singleton
+        fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+            return Room.databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "casa_historias_db"
+            )
+            .fallbackToDestructiveMigration()
+            .build()
+        }
+        
+        @Provides
+        fun provideStoryDao(database: AppDatabase): StoryDao {
+            return database.storyDao()
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## StoryEntity
+
+Location: `data/local/entities/StoryEntity.kt:6`
+
+The entity represents a story stored locally in the SQLite database:
+
+```kotlin
+@Entity(tableName = "stories")
+data class StoryEntity(
+    @PrimaryKey val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioPath: String?, // Ruta local al archivo de audio
+    val imagePath: String?, // Ruta local a la imagen
+    val narratorName: String,
+    val community: String,
+    val isFavorite: Boolean = false
+)
+```
+
+### Schema Comparison
+
+<Note>
+Notice the differences between `StoryEntity` (local) and `StoryFirestore` (cloud):
+
+**Local Storage:**
+- Uses `audioPath` and `imagePath` for local file paths
+- Includes `isFavorite` flag for offline favoriting
+- Excludes cloud-specific fields like timestamps and author info
+
+**Cloud Storage:**
+- Uses `audioUrl` and `imageUrl` for Firebase Storage URLs
+- Includes metadata like `createdAt`, `updatedAt`, `authorId`
+- Stores publication status and tags
+</Note>
+
+### Field Descriptions
+
+| Field | Type | Nullable | Description |
+|-------|------|----------|-------------|
+| id | String | No | Primary key, matches Firestore document ID |
+| titleEs | String | No | Story title in Spanish |
+| titleNahuatl | String | No | Story title in Nahuatl |
+| contentEs | String | No | Story content in Spanish |
+| contentNahuatl | String | No | Story content in Nahuatl |
+| audioPath | String | Yes | Local file path to cached audio file |
+| imagePath | String | Yes | Local file path to cached cover image |
+| narratorName | String | No | Name of the storyteller |
+| community | String | No | Indigenous community name |
+| isFavorite | Boolean | No | Whether user marked as favorite (default: false) |
+
+## StoryDao
+
+Location: `data/local/dao/StoryDao.kt:8`
+
+The Data Access Object defines all database operations:
+
+```kotlin
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories")
+    fun getAllStories(): Flow<List<StoryEntity>>
+
+    @Query("SELECT * FROM stories WHERE id = :id")
+    suspend fun getStoryById(id: String): StoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStories(stories: List<StoryEntity>)
+
+    @Delete
+    suspend fun deleteStory(story: StoryEntity)
+}
+```
+
+### Query Operations
+
+#### Get All Stories (Flow)
+
+Location: `data/local/dao/StoryDao.kt:9`
+
+```kotlin
+@Query("SELECT * FROM stories")
+fun getAllStories(): Flow<List<StoryEntity>>
+```
+
+<Tip>
+Returning a `Flow` allows your UI to automatically update when the database changes. Perfect for reactive Compose UIs.
+</Tip>
+
+**Example Usage:**
+
+```kotlin
+@HiltViewModel
+class OfflineStoriesViewModel @Inject constructor(
+    private val storyDao: StoryDao
+) : ViewModel() {
+    
+    val localStories: StateFlow<List<StoryEntity>> = storyDao.getAllStories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+}
+```
+
+#### Get Story by ID
+
+Location: `data/local/dao/StoryDao.kt:12`
+
+```kotlin
+@Query("SELECT * FROM stories WHERE id = :id")
+suspend fun getStoryById(id: String): StoryEntity?
+```
+
+Returns `null` if no story with the given ID exists in the local database.
+
+### Write Operations
+
+#### Insert Stories
+
+Location: `data/local/dao/StoryDao.kt:15`
+
+```kotlin
+@Insert(onConflict = OnConflictStrategy.REPLACE)
+suspend fun insertStories(stories: List<StoryEntity>)
+```
+
+<Note>
+`OnConflictStrategy.REPLACE` ensures that if a story with the same ID already exists, it will be updated with the new data.
+</Note>
+
+**Example - Sync from Firestore:**
+
+```kotlin
+suspend fun syncStories() {
+    val firestoreStories = firestoreRepository.getAllStories()
+    val entities = firestoreStories.map { it.toEntity() }
+    storyDao.insertStories(entities)
+}
+```
+
+#### Delete Story
+
+Location: `data/local/dao/StoryDao.kt:18`
+
+```kotlin
+@Delete
+suspend fun deleteStory(story: StoryEntity)
+```
+
+**Example Usage:**
+
+```kotlin
+viewModelScope.launch {
+    val story = storyDao.getStoryById(storyId)
+    story?.let { storyDao.deleteStory(it) }
+}
+```
+
+## Common Patterns
+
+### Caching Strategy
+
+Implement a repository pattern to coordinate between Firestore and Room:
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val storyDao: StoryDao,
+    private val networkMonitor: NetworkMonitor
+) {
+    
+    fun getStories(): Flow<List<Story>> = flow {
+        // First, emit cached data for fast display
+        val cachedStories = storyDao.getAllStories().first()
+        if (cachedStories.isNotEmpty()) {
+            emit(cachedStories.map { it.toDomain() })
+        }
+        
+        // Then fetch fresh data if online
+        if (networkMonitor.isOnline()) {
+            try {
+                val freshStories = firestoreRepository.getAllStories()
+                
+                // Update cache
+                storyDao.insertStories(freshStories.map { it.toEntity() })
+                
+                // Emit fresh data
+                emit(freshStories.map { it.toDomain() })
+            } catch (e: Exception) {
+                // Network error - stick with cache
+            }
+        }
+    }
+}
+```
+
+### Favorites Management
+
+```kotlin
+suspend fun toggleFavorite(storyId: String) {
+    val story = storyDao.getStoryById(storyId)
+    story?.let {
+        val updated = it.copy(isFavorite = !it.isFavorite)
+        storyDao.insertStories(listOf(updated))
+        
+        // Sync to Firestore if online
+        if (networkMonitor.isOnline()) {
+            if (updated.isFavorite) {
+                firestoreRepository.addToFavorites(userId, storyId)
+            } else {
+                firestoreRepository.removeFromFavorites(userId, storyId)
+            }
+        }
+    }
+}
+```
+
+### Get Favorites Only
+
+Add this query to `StoryDao` for filtering favorites:
+
+```kotlin
+@Query("SELECT * FROM stories WHERE isFavorite = 1")
+fun getFavoriteStories(): Flow<List<StoryEntity>>
+```
+
+### Search Local Stories
+
+Add this query for offline search:
+
+```kotlin
+@Query("""
+    SELECT * FROM stories 
+    WHERE titleEs LIKE '%' || :query || '%' 
+       OR titleNahuatl LIKE '%' || :query || '%'
+       OR narratorName LIKE '%' || :query || '%'
+       OR community LIKE '%' || :query || '%'
+""")
+fun searchStories(query: String): Flow<List<StoryEntity>>
+```
+
+## Data Mapping
+
+Convert between Firestore and Room models:
+
+```kotlin
+fun StoryFirestore.toEntity(): StoryEntity {
+    return StoryEntity(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioPath = null, // Will be set after downloading
+        imagePath = null, // Will be set after downloading
+        narratorName = this.narratorName,
+        community = this.community,
+        isFavorite = false // Default for new items
+    )
+}
+
+fun StoryEntity.toDomain(): Story {
+    return Story(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioPath,
+        imageUrl = this.imagePath,
+        narratorName = this.narratorName,
+        community = this.community
+    )
+}
+```
+
+## Database Migrations
+
+When you need to change the schema, create migrations:
+
+```kotlin
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Example: Add a new column
+        database.execSQL(
+            "ALTER TABLE stories ADD COLUMN downloadedAt INTEGER DEFAULT 0 NOT NULL"
+        )
+    }
+}
+
+// In DatabaseModule
+@Provides
+@Singleton
+fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+    return Room.databaseBuilder(
+        context,
+        AppDatabase::class.java,
+        "casa_historias_db"
+    )
+    .addMigrations(MIGRATION_1_2)
+    .build()
+}
+```
+
+<Warning>
+Always provide migrations in production apps. Using `fallbackToDestructiveMigration()` will delete all user data when the schema changes.
+</Warning>
+
+## Testing
+
+### In-Memory Database for Tests
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class StoryDaoTest {
+    
+    private lateinit var database: AppDatabase
+    private lateinit var storyDao: StoryDao
+    
+    @Before
+    fun setup() {
+        database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            AppDatabase::class.java
+        ).allowMainThreadQueries()
+         .build()
+        
+        storyDao = database.storyDao()
+    }
+    
+    @After
+    fun tearDown() {
+        database.close()
+    }
+    
+    @Test
+    fun insertAndRetrieveStory() = runTest {
+        val story = StoryEntity(
+            id = "test_1",
+            titleEs = "Test Story",
+            titleNahuatl = "Test Story",
+            contentEs = "Content",
+            contentNahuatl = "Content",
+            audioPath = null,
+            imagePath = null,
+            narratorName = "Narrator",
+            community = "Community"
+        )
+        
+        storyDao.insertStories(listOf(story))
+        val retrieved = storyDao.getStoryById("test_1")
+        
+        assertEquals(story, retrieved)
+    }
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Flow for reactive queries">
+    Return `Flow` from DAO queries to automatically update UI when data changes.
+  </Step>
+  
+  <Step title="Keep entities simple">
+    Store only essential data locally. Don't replicate the entire cloud schema.
+  </Step>
+  
+  <Step title="Implement proper migrations">
+    Never use `fallbackToDestructiveMigration()` in production unless acceptable to lose user data.
+  </Step>
+  
+  <Step title="Cache strategically">
+    Don't cache everything. Consider caching:
+    - Recently viewed stories
+    - User's favorite stories
+    - Stories from user's community
+  </Step>
+  
+  <Step title="Clean up old cache">
+    Implement a cache expiration strategy:
+    
+    ```kotlin
+    @Query("DELETE FROM stories WHERE downloadedAt < :timestamp AND isFavorite = 0")
+    suspend fun deleteOldCache(timestamp: Long)
+    ```
+  </Step>
+</Steps>
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Indexing">
+    Add indexes for frequently queried columns:
+    
+    ```kotlin
+    @Entity(
+        tableName = "stories",
+        indices = [
+            Index(value = ["community"]),
+            Index(value = ["isFavorite"])
+        ]
+    )
+    data class StoryEntity(...)
+    ```
+  </Accordion>
+  
+  <Accordion title="Batch Operations">
+    Use batch inserts instead of inserting one by one:
+    
+    ```kotlin
+    // Good
+    storyDao.insertStories(listOfStories)
+    
+    // Bad
+    listOfStories.forEach { story ->
+        storyDao.insertStory(story)
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Limit Result Size">
+    For large datasets, use LIMIT in queries:
+    
+    ```kotlin
+    @Query("SELECT * FROM stories ORDER BY downloadedAt DESC LIMIT :limit")
+    fun getRecentStories(limit: Int = 50): Flow<List<StoryEntity>>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Firestore Database" icon="database" href="/development/firestore">
+    Understand the cloud database structure
+  </Card>
+  <Card title="StoryRepository" icon="code-branch" href="/development/firestore">
+    See how Firestore and Room work together
+  </Card>
+</CardGroup>

@@ -1,0 +1,564 @@
+---
+title: Screen Architecture
+description: Screen structure, navigation, and composable organization
+---
+
+## Overview
+
+Casa de Historias follows a feature-based screen organization with a centralized navigation system. All screens use Jetpack Compose and follow MVVM architecture with ViewModels for state management.
+
+## Screen Structure
+
+Screens are organized by feature in the `ui` package:
+
+```
+ui/
+├── auth/
+│   ├── LoginScreen.kt
+│   ├── SignUpScreen.kt
+│   └── AuthViewModel.kt
+├── story/
+│   ├── StoryListScreen.kt
+│   ├── StoryDetailScreen.kt
+│   ├── AddStoryScreen.kt
+│   ├── EditStoryScreen.kt
+│   ├── StoryMapScreen.kt
+│   └── StoryViewModel.kt
+├── discover/
+│   └── DiscoverScreen.kt
+├── favorites/
+│   ├── FavoritesScreen.kt
+│   └── FavoritesViewModel.kt
+├── profile/
+│   └── ProfileScreen.kt
+├── search/
+│   ├── SearchScreen.kt
+│   └── SearchViewModel.kt
+├── dictionary/
+│   └── DictionaryScreen.kt
+├── settings/
+│   └── SettingsScreen.kt
+├── welcome/
+│   └── WelcomeScreen.kt
+├── navigation/
+│   └── NavGraph.kt
+├── theme/
+│   ├── Color.kt
+│   ├── Theme.kt
+│   └── Type.kt
+└── MainContainer.kt
+```
+
+## Navigation System
+
+### Screen Definitions
+
+All screens are defined as sealed class objects in `NavGraph.kt`:
+
+<CodeGroup>
+```kotlin NavGraph.kt
+sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
+    object Discover : Screen("discover")
+    object Dictionary : Screen("dictionary")
+    object Login : Screen("login")
+    object SignUp : Screen("signup")
+    object StoryList : Screen("story_list")
+    object AddStory : Screen("add_story")
+    object StoryMap : Screen("story_map")
+    object Favorites : Screen("favorites")
+    object Profile : Screen("profile")
+    object Search : Screen("search")
+    object Settings : Screen("settings")
+    
+    // Screens with parameters
+    object StoryDetail : Screen("story_detail/{storyId}") {
+        fun createRoute(storyId: String) = "story_detail/$storyId"
+    }
+    object EditStory : Screen("edit_story/{storyId}") {
+        fun createRoute(storyId: String) = "edit_story/$storyId"
+    }
+}
+```
+</CodeGroup>
+
+### Navigation Graph
+
+The `NavGraph` composable sets up all navigation routes:
+
+<CodeGroup>
+```kotlin NavGraph Setup
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+) {
+    val storyViewModel: StoryViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onContinue = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        composable(Screen.StoryList.route) {
+            StoryListScreen(
+                viewModel = storyViewModel,
+                onStoryClick = { storyId ->
+                    navController.navigate(
+                        Screen.StoryDetail.createRoute(storyId)
+                    )
+                },
+                onAddStoryClick = {
+                    navController.navigate(Screen.AddStory.route)
+                }
+            )
+        }
+        
+        // Parameterized route
+        composable(
+            route = Screen.StoryDetail.route,
+            arguments = listOf(
+                navArgument("storyId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+            // Screen implementation
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Main Container
+
+`MainContainer.kt` wraps the navigation graph with bottom navigation:
+
+<CodeGroup>
+```kotlin MainContainer.kt
+@Composable
+fun MainContainer() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+
+    val startDestination = if (authViewModel.isLoggedIn) {
+        Screen.Discover.route
+    } else {
+        Screen.Welcome.route
+    }
+
+    val bottomNavItems = listOf(
+        BottomNavItem("Explorar", Screen.Discover.route, 
+            Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+        BottomNavItem("Leyendas", Screen.StoryList.route, 
+            Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
+        BottomNavItem("Mapa", Screen.StoryMap.route, 
+            Icons.Filled.Explore, Icons.Outlined.Explore),
+        BottomNavItem("Favoritos", Screen.Favorites.route, 
+            Icons.Filled.Favorite, Icons.Outlined.FavoriteBorder),
+        BottomNavItem("Perfil", Screen.Profile.route, 
+            Icons.Filled.Person, Icons.Outlined.Person)
+    )
+
+    Scaffold(
+        containerColor = NocheProfunda,
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar(/* ... */) {
+                    // Navigation items
+                }
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            NavGraph(
+                navController = navController,
+                authViewModel = authViewModel,
+                startDestination = startDestination
+            )
+        }
+    }
+}
+```
+</CodeGroup>
+
+## Screen Patterns
+
+### Basic Screen Template
+
+Most screens follow this structure:
+
+<CodeGroup>
+```kotlin Screen Template
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyScreen(
+    viewModel: MyViewModel = hiltViewModel(),
+    onNavigateBack: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {}
+) {
+    // Collect state from ViewModel
+    val uiState by viewModel.uiState.collectAsState()
+    val items by viewModel.items.collectAsState()
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("My Screen") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = NocheProfunda
+                )
+            )
+        },
+        containerColor = NocheProfunda
+    ) { padding ->
+        // Content based on state
+        when (uiState) {
+            is UiState.Loading -> LoadingView()
+            is UiState.Error -> ErrorView()
+            is UiState.Success -> ContentView(items)
+        }
+    }
+}
+```
+</CodeGroup>
+
+### List Screen Pattern
+
+Used in `StoryListScreen.kt` and `FavoritesScreen.kt`:
+
+<CodeGroup>
+```kotlin List Screen
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit = {},
+    onAddStoryClick: () -> Unit = {}
+) {
+    val stories by viewModel.stories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    Scaffold(
+        topBar = { /* ... */ },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddStoryClick,
+                containerColor = AguaSagrada
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
+            }
+        }
+    ) { padding ->
+        when {
+            isLoading -> LoadingState()
+            errorMessage != null -> ErrorState(errorMessage)
+            stories.isEmpty() -> EmptyState()
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.padding(padding),
+                    contentPadding = PaddingValues(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(stories, key = { it.id }) { story ->
+                        ModernStoryCard(
+                            story = story,
+                            onClick = { onStoryClick(story.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Form Screen Pattern
+
+Used in `AddStoryScreen.kt` and `EditStoryScreen.kt`:
+
+<CodeGroup>
+```kotlin Form Screen
+@Composable
+fun AddStoryScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: AddStoryViewModel = hiltViewModel()
+) {
+    var titleEs by remember { mutableStateOf("") }
+    var contentEs by remember { mutableStateOf("") }
+    
+    val uiState by viewModel.uiState.collectAsState()
+    
+    // Navigate back on success
+    LaunchedEffect(uiState) {
+        if (uiState is AddStoryUiState.Success) {
+            viewModel.resetState()
+            onNavigateBack()
+        }
+    }
+
+    Scaffold(
+        topBar = { /* ... */ },
+        containerColor = NocheProfunda
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = FondoTarjeta
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    CustomOutlinedTextField(
+                        value = titleEs,
+                        onValueChange = { titleEs = it },
+                        label = "Título *",
+                        icon = Icons.Outlined.Edit
+                    )
+                    // More fields...
+                }
+            }
+            
+            Button(
+                onClick = { viewModel.submit(/* ... */) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AguaSagrada
+                )
+            ) {
+                if (uiState is UiState.Loading) {
+                    CircularProgressIndicator()
+                } else {
+                    Text("Submit")
+                }
+            }
+        }
+    }
+}
+```
+</CodeGroup>
+
+## Key Screens
+
+### Welcome Screen
+
+**Location:** `ui/welcome/WelcomeScreen.kt`
+
+**Purpose:** App entry point with animated onboarding
+
+**Features:**
+- Staggered entrance animations
+- Radial gradient background
+- Breathing glow effect on moon emoji
+- Cultural branding with Nahuatl phrase
+
+**Navigation:** → Login Screen
+
+---
+
+### Story List Screen
+
+**Location:** `ui/story/StoryListScreen.kt`
+
+**Purpose:** Browse all stories
+
+**Features:**
+- Custom `ModernStoryCard` components
+- Loading/error/empty states
+- Search action in top bar
+- FAB for adding stories
+- Pull from Firebase via `StoryViewModel`
+
+**Navigation:** 
+- → Story Detail (on card click)
+- → Add Story (on FAB)
+- → Search (on search icon)
+
+---
+
+### Add Story Screen
+
+**Location:** `ui/story/AddStoryScreen.kt`
+
+**Purpose:** Create new story with bilingual content
+
+**Features:**
+- Custom text fields with icons
+- Image picker integration
+- MapLibre location picker
+- Form validation
+- Upload to Firebase Storage/Firestore
+
+**Dependencies:** `AddStoryViewModel`
+
+---
+
+### Story Map Screen
+
+**Location:** `ui/story/StoryMapScreen.kt`
+
+**Purpose:** View stories on interactive map
+
+**Features:**
+- MapLibre integration
+- Story markers with clustering
+- Tap marker to view story details
+
+**Navigation:** → Story Detail
+
+---
+
+### Discover Screen
+
+**Location:** `ui/discover/DiscoverScreen.kt`
+
+**Purpose:** Main discovery feed
+
+**Features:**
+- Featured stories
+- Quick access to dictionary
+- Category browsing
+
+**Navigation:** 
+- → Story Detail
+- → Dictionary
+- → Story List
+
+## ViewModel Integration
+
+### Dependency Injection
+
+Screens use Hilt for ViewModel injection:
+
+<CodeGroup>
+```kotlin ViewModel Injection
+@Composable
+fun MyScreen(
+    viewModel: MyViewModel = hiltViewModel()
+) {
+    // ViewModel automatically injected by Hilt
+}
+```
+</CodeGroup>
+
+### Shared ViewModels
+
+Some ViewModels are shared across screens via `NavGraph`:
+
+<CodeGroup>
+```kotlin Shared ViewModel
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+) {
+    // Shared across multiple screens
+    val storyViewModel: StoryViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+    
+    NavHost(/* ... */) {
+        composable(Screen.StoryList.route) {
+            StoryListScreen(viewModel = storyViewModel)
+        }
+        composable(Screen.StoryDetail.route) {
+            StoryDetailScreen(viewModel = storyViewModel)
+        }
+    }
+}
+```
+</CodeGroup>
+
+## State Management
+
+### State Collection
+
+Screens collect state using `collectAsState()`:
+
+<CodeGroup>
+```kotlin State Collection
+val stories by viewModel.stories.collectAsState()
+val isLoading by viewModel.isLoading.collectAsState()
+val errorMessage by viewModel.errorMessage.collectAsState()
+```
+</CodeGroup>
+
+### LaunchedEffect for Side Effects
+
+Use `LaunchedEffect` for navigation and other side effects:
+
+<CodeGroup>
+```kotlin Side Effects
+LaunchedEffect(uiState) {
+    if (uiState is AddStoryUiState.Success) {
+        viewModel.resetState()
+        onNavigateBack()
+    }
+}
+```
+</CodeGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use callback parameters for navigation">
+    Pass navigation callbacks as parameters instead of accessing NavController directly in screens:
+    ```kotlin
+    @Composable
+    fun MyScreen(
+        onNavigateToDetail: (String) -> Unit,
+        onNavigateBack: () -> Unit
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Handle navigation arguments safely">
+    Always provide defaults when extracting navigation arguments:
+    ```kotlin
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    ```
+  </Accordion>
+
+  <Accordion title="Clear backstack for auth flows">
+    Use `popUpTo(0) { inclusive = true }` when navigating after login/logout to clear the entire backstack.
+  </Accordion>
+
+  <Accordion title="Hoist state appropriately">
+    Keep UI-only state in composables with `remember`, but use ViewModels for business logic and data that survives configuration changes.
+  </Accordion>
+
+  <Accordion title="Use sealed classes for navigation">
+    Define all routes in a sealed class hierarchy to prevent typos and enable type-safe navigation.
+  </Accordion>
+</AccordionGroup>
+
+## Related Files
+
+- [`NavGraph.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:1) - Navigation configuration
+- [`MainContainer.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/MainContainer.kt:1) - Bottom navigation wrapper
+- [`StoryViewModel.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:1) - Shared story state
+- [`AuthViewModel.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:1) - Authentication state

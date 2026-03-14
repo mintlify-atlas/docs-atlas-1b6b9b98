@@ -1,0 +1,117 @@
+---
+title: "Story"
+description: "Domain model representing a story in Casa de Historias"
+---
+
+## Overview
+
+The `Story` data class is the primary domain model representing a story in the application. It contains bilingual content (Spanish and Nahuatl), multimedia URLs, location data, and metadata.
+
+## Declaration
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+**Package:** `com.example.casadehistorias.domain.model`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/domain/model/Story.kt:3`
+
+## Properties
+
+<ParamField path="id" type="String" required>
+  Unique identifier for the story
+</ParamField>
+
+<ParamField path="titleEs" type="String" required>
+  Story title in Spanish
+</ParamField>
+
+<ParamField path="titleNahuatl" type="String" required>
+  Story title in Nahuatl
+</ParamField>
+
+<ParamField path="contentEs" type="String" required>
+  Full story content in Spanish
+</ParamField>
+
+<ParamField path="contentNahuatl" type="String" required>
+  Full story content in Nahuatl
+</ParamField>
+
+<ParamField path="audioUrl" type="String?">
+  Optional URL to the story's audio file
+</ParamField>
+
+<ParamField path="imageUrl" type="String?">
+  Optional URL to the story's cover image
+</ParamField>
+
+<ParamField path="narratorName" type="String" required>
+  Name of the person who narrated/told the story
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  Name of the community where the story originated
+</ParamField>
+
+<ParamField path="latitude" type="Double?" default="null">
+  Geographic latitude coordinate of the story's location
+</ParamField>
+
+<ParamField path="longitude" type="Double?" default="null">
+  Geographic longitude coordinate of the story's location
+</ParamField>
+
+<ParamField path="authorId" type="String" default='""'>
+  Firebase user ID of the story's author
+</ParamField>
+
+<ParamField path="tags" type="List<String>" default="emptyList()">
+  List of tags associated with the story for categorization and search
+</ParamField>
+
+<ParamField path="createdAt" type="Long" default="0L">
+  Timestamp when the story was created (in milliseconds)
+</ParamField>
+
+## Usage Example
+
+```kotlin
+val story = Story(
+    id = "story123",
+    titleEs = "La leyenda del volcán",
+    titleNahuatl = "Popocatepetl itlahtol",
+    contentEs = "Había una vez...",
+    contentNahuatl = "Ye huehcauh...",
+    audioUrl = "https://storage.googleapis.com/audio/story123.mp3",
+    imageUrl = "https://storage.googleapis.com/images/story123.jpg",
+    narratorName = "María González",
+    community = "Tepoztlán",
+    latitude = 18.9847,
+    longitude = -99.0930,
+    authorId = "user456",
+    tags = listOf("leyenda", "volcán", "tradición"),
+    createdAt = 1709510400000L
+)
+```
+
+## Related
+
+- [StoryRepository](/api/repositories/story-repository) - Repository for managing Story data
+- [StoryViewModel](/api/viewmodels/story-viewmodel) - ViewModel for Story-related UI state

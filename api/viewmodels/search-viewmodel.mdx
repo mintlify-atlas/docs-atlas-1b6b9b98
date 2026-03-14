@@ -1,0 +1,185 @@
+---
+title: "SearchViewModel"
+description: "ViewModel for story search functionality with debouncing"
+---
+
+## Overview
+
+The `SearchViewModel` class manages story search functionality with automatic debouncing. It provides reactive state for search queries and results while optimizing network requests.
+
+## Declaration
+
+```kotlin
+@HiltViewModel
+class SearchViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel()
+```
+
+**Package:** `com.example.casadehistorias.ui.search`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:17`
+
+## Annotations
+
+- `@HiltViewModel` - Enables Hilt dependency injection for ViewModel
+- `@Inject` - Constructor injection annotation
+
+## State Properties
+
+### query
+
+```kotlin
+val query: StateFlow<String>
+```
+
+StateFlow containing the current search query text.
+
+**Type:** `StateFlow<String>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:22`
+
+### results
+
+```kotlin
+val results: StateFlow<List<Story>>
+```
+
+StateFlow containing the search results.
+
+**Type:** `StateFlow<List<Story>>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:25`
+
+### isSearching
+
+```kotlin
+val isSearching: StateFlow<Boolean>
+```
+
+StateFlow indicating whether a search operation is in progress.
+
+**Type:** `StateFlow<Boolean>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:28`
+
+## Methods
+
+### onQueryChange
+
+```kotlin
+fun onQueryChange(newQuery: String)
+```
+
+Updates the search query and triggers a debounced search.
+
+<ParamField path="newQuery" type="String" required>
+  The new search query text
+</ParamField>
+
+**Behavior:**
+- Cancels any pending search operation
+- If query is blank: clears results immediately
+- If query is not blank: waits 300ms before executing search (debouncing)
+- Updates `isSearching` state during search
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:32`
+
+### clearSearch
+
+```kotlin
+fun clearSearch()
+```
+
+Clears the search query and results.
+
+**Side effects:**
+- Sets `query` to empty string
+- Clears `results` list
+- Sets `isSearching` to false
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/search/SearchViewModel.kt:49`
+
+## Debouncing Implementation
+
+The SearchViewModel implements a 300ms debounce to avoid excessive search requests:
+
+```kotlin
+private var searchJob: Job? = null
+
+fun onQueryChange(newQuery: String) {
+    _query.value = newQuery
+    searchJob?.cancel()  // Cancel previous search
+    
+    if (newQuery.isBlank()) {
+        _results.value = emptyList()
+        _isSearching.value = false
+        return
+    }
+    
+    searchJob = viewModelScope.launch {
+        _isSearching.value = true
+        delay(300)  // Wait 300ms
+        val searchResults = repository.searchStories(newQuery)
+        _results.value = searchResults
+        _isSearching.value = false
+    }
+}
+```
+
+## Usage Example
+
+```kotlin
+@Composable
+fun SearchScreen(
+    viewModel: SearchViewModel = hiltViewModel()
+) {
+    val query by viewModel.query.collectAsState()
+    val results by viewModel.results.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
+
+    Column {
+        SearchBar(
+            query = query,
+            onQueryChange = { viewModel.onQueryChange(it) },
+            onClear = { viewModel.clearSearch() }
+        )
+        
+        when {
+            isSearching -> LoadingIndicator()
+            query.isBlank() -> SearchPrompt()
+            results.isEmpty() -> NoResultsView()
+            else -> LazyColumn {
+                items(results) { story ->
+                    StoryCard(story = story)
+                }
+            }
+        }
+    }
+}
+```
+
+## Search Behavior
+
+The search functionality matches stories across multiple fields:
+- Spanish title (`titleEs`)
+- Nahuatl title (`titleNahuatl`)
+- Narrator name (`narratorName`)
+- Community name (`community`)
+- Tags
+
+All searches are case-insensitive.
+
+## Performance Optimization
+
+Key optimizations implemented:
+
+1. **Debouncing**: 300ms delay prevents excessive API calls while typing
+2. **Job Cancellation**: Previous search is cancelled when query changes
+3. **Early Return**: Blank queries immediately clear results without API call
+4. **Coroutines**: Search executes in background without blocking UI
+
+## Related
+
+- [StoryRepository](/api/repositories/story-repository) - Repository for search operations
+- [Story](/api/models/story) - Story domain model

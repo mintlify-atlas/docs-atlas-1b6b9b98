@@ -1,0 +1,489 @@
+---
+title: Compose UI Patterns
+description: Common UI patterns and components used throughout Casa de Historias
+---
+
+## Overview
+
+Casa de Historias uses Jetpack Compose for building modern, declarative UI. This guide covers common UI patterns, custom components, and design conventions used across the app.
+
+## Material Design 3 Components
+
+The app leverages Material Design 3 components with custom theming:
+
+### Scaffold Pattern
+
+Most screens use the `Scaffold` composable for consistent layout structure:
+
+<CodeGroup>
+```kotlin StoryListScreen.kt
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit = {},
+    onAddStoryClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Casa de Historias",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = LunaLlena
+                        )
+                        Text(
+                            text = "Leyendas de la Sierra",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AguaSagrada,
+                            fontSize = 11.sp
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(Icons.Default.Search, contentDescription = "Buscar")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = NocheProfunda
+                )
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddStoryClick,
+                containerColor = AguaSagrada,
+                contentColor = NocheProfunda,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Añadir Historia")
+            }
+        },
+        containerColor = NocheProfunda
+    ) { padding ->
+        // Content
+    }
+}
+```
+</CodeGroup>
+
+### Navigation Bar
+
+Bottom navigation with Material 3 styling in `MainContainer.kt`:
+
+<CodeGroup>
+```kotlin MainContainer.kt
+NavigationBar(
+    containerColor = FondoTarjeta,
+    contentColor = LunaLlena
+) {
+    bottomNavItems.forEach { item ->
+        val isSelected = /* ... */
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = if (isSelected) 
+                        item.selectedIcon 
+                    else 
+                        item.unselectedIcon,
+                    contentDescription = item.label
+                )
+            },
+            label = {
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            selected = isSelected,
+            onClick = { /* Navigate */ },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AguaSagrada,
+                selectedTextColor = AguaSagrada,
+                unselectedIconColor = TextoSecundario,
+                unselectedTextColor = TextoSecundario,
+                indicatorColor = AguaSagradaOscura.copy(alpha = 0.2f)
+            )
+        )
+    }
+}
+```
+</CodeGroup>
+
+## Custom Components
+
+### Story Card
+
+A modern card component with gradient overlays and image support:
+
+<CodeGroup>
+```kotlin ModernStoryCard
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ModernStoryCard(
+    story: Story,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 8.dp,
+            pressedElevation = 12.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = FondoTarjeta
+        ),
+        onClick = onClick
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background image with gradient overlay
+            if (!story.imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = story.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    NocheProfunda.copy(alpha = 0.6f),
+                                    NocheProfunda.copy(alpha = 0.95f)
+                                )
+                            )
+                        )
+                )
+            }
+            
+            // Content layer
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                // Nahuatl title
+                if (story.titleNahuatl.isNotBlank()) {
+                    Text(
+                        text = story.titleNahuatl,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontStyle = FontStyle.Italic,
+                        color = AguaSagrada
+                    )
+                }
+                // Spanish title
+                Text(
+                    text = story.titleEs,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = LunaLlena
+                )
+            }
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Custom Text Field
+
+Stylized `OutlinedTextField` with consistent theming:
+
+<CodeGroup>
+```kotlin CustomOutlinedTextField
+@Composable
+fun CustomOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    isError: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = { 
+            Icon(icon, contentDescription = null, tint = AguaSagrada) 
+        },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = singleLine,
+        isError = isError,
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AguaSagrada,
+            unfocusedBorderColor = TextoSecundario.copy(alpha = 0.3f),
+            errorBorderColor = FloresCeremoniales,
+            focusedLabelColor = AguaSagrada,
+            unfocusedLabelColor = TextoSecundario,
+            cursorColor = AguaSagrada,
+            focusedTextColor = LunaLlena,
+            unfocusedTextColor = LunaLlena
+        )
+    )
+}
+```
+</CodeGroup>
+
+<Note>
+This component is used in `AddStoryScreen.kt` and `EditStoryScreen.kt` for form inputs.
+</Note>
+
+## UI Patterns
+
+### Gradient Backgrounds
+
+The app uses gradient backgrounds for visual depth:
+
+<CodeGroup>
+```kotlin WelcomeScreen.kt
+Box(
+    modifier = Modifier
+        .fillMaxSize()
+        .background(
+            Brush.radialGradient(
+                colors = listOf(
+                    AguaSagradaOscura.copy(alpha = 0.2f),
+                    NocheProfunda
+                ),
+                radius = 1200f
+            )
+        )
+) {
+    // Content
+}
+```
+</CodeGroup>
+
+### State Handling Pattern
+
+Screens follow a consistent pattern for loading, error, and empty states:
+
+<CodeGroup>
+```kotlin State Pattern
+val stories by viewModel.stories.collectAsState()
+val isLoading by viewModel.isLoading.collectAsState()
+val errorMessage by viewModel.errorMessage.collectAsState()
+
+when {
+    isLoading -> {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = AguaSagrada)
+                Text(
+                    "Cargando historias...",
+                    color = TextoSecundario
+                )
+            }
+        }
+    }
+    errorMessage != null -> {
+        // Error state
+    }
+    stories.isEmpty() -> {
+        // Empty state
+    }
+    else -> {
+        // Content state
+    }
+}
+```
+</CodeGroup>
+
+### LazyColumn with Cards
+
+List screens use `LazyColumn` with proper spacing:
+
+<CodeGroup>
+```kotlin List Pattern
+LazyColumn(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(padding),
+    contentPadding = PaddingValues(
+        horizontal = 20.dp, 
+        vertical = 16.dp
+    ),
+    verticalArrangement = Arrangement.spacedBy(16.dp)
+) {
+    items(stories, key = { it.id }) { story ->
+        ModernStoryCard(
+            story = story,
+            onClick = { onStoryClick(story.id) }
+        )
+    }
+}
+```
+</CodeGroup>
+
+## Animations
+
+### Entrance Animations
+
+The welcome screen uses coordinated animations:
+
+<CodeGroup>
+```kotlin WelcomeScreen.kt
+var showTitle by remember { mutableStateOf(false) }
+var showSubtitle by remember { mutableStateOf(false) }
+var showButton by remember { mutableStateOf(false) }
+
+LaunchedEffect(Unit) {
+    delay(400)
+    showTitle = true
+    delay(600)
+    showSubtitle = true
+    delay(600)
+    showButton = true
+}
+
+AnimatedVisibility(
+    visible = showTitle,
+    enter = fadeIn(tween(800)) + slideInVertically(
+        tween(800),
+        initialOffsetY = { 50 }
+    )
+) {
+    Text("Casa de Historias")
+}
+```
+</CodeGroup>
+
+### Infinite Animations
+
+Breathing glow effect:
+
+<CodeGroup>
+```kotlin Glow Animation
+val infiniteTransition = rememberInfiniteTransition(label = "glow")
+val glowAlpha by infiniteTransition.animateFloat(
+    initialValue = 0.5f,
+    targetValue = 1f,
+    animationSpec = infiniteRepeatable(
+        animation = tween(2000, easing = EaseInOutSine),
+        repeatMode = RepeatMode.Reverse
+    ),
+    label = "glowAlpha"
+)
+
+Text(
+    text = "🌙",
+    fontSize = 80.sp,
+    modifier = Modifier.alpha(glowAlpha)
+)
+```
+</CodeGroup>
+
+## Image Loading
+
+The app uses Coil 3 for async image loading:
+
+<CodeGroup>
+```kotlin AsyncImage Usage
+AsyncImage(
+    model = story.imageUrl,
+    contentDescription = null,
+    modifier = Modifier.fillMaxSize(),
+    contentScale = ContentScale.Crop
+)
+```
+</CodeGroup>
+
+## ViewInterop
+
+For MapLibre integration, the app uses `AndroidView`:
+
+<CodeGroup>
+```kotlin MapLibre Integration
+Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(200.dp)
+) {
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            MapLibre.getInstance(context)
+            val mapView = MapView(context)
+            mapView.onCreate(null)
+            mapView.getMapAsync { map ->
+                map.setStyle(Style.Builder()
+                    .fromUri("https://tiles.openfreemap.org/styles/liberty")) {
+                    // Configure map
+                }
+            }
+            mapView
+        },
+        update = { mapView ->
+            mapView.onResume()
+        }
+    )
+}
+```
+</CodeGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use state hoisting">
+    Lift state to parent composables and pass callbacks down for better reusability:
+    ```kotlin
+    @Composable
+    fun StoryCard(
+        story: Story,
+        onClick: () -> Unit  // Callback instead of internal navigation
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Apply consistent spacing">
+    Use standardized spacing values:
+    - Cards: `16.dp` or `20.dp` between items
+    - Padding: `16.dp` or `20.dp` horizontal/vertical
+    - Corner radius: `12.dp`, `16.dp`, or `24.dp`
+  </Accordion>
+
+  <Accordion title="Use remember for non-observable state">
+    Use `remember` for UI-only state and `collectAsState()` for ViewModel flows:
+    ```kotlin
+    var showDialog by remember { mutableStateOf(false) }
+    val stories by viewModel.stories.collectAsState()
+    ```
+  </Accordion>
+
+  <Accordion title="Provide content descriptions">
+    Always include content descriptions for accessibility:
+    ```kotlin
+    Icon(
+        Icons.Default.Add,
+        contentDescription = "Añadir Historia"
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Files
+
+- [`MainContainer.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/MainContainer.kt:1) - Main navigation structure
+- [`StoryListScreen.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryListScreen.kt:1) - List UI patterns
+- [`AddStoryScreen.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryScreen.kt:1) - Form UI patterns
+- [`WelcomeScreen.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/welcome/WelcomeScreen.kt:1) - Animation patterns

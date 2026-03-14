@@ -1,0 +1,205 @@
+---
+title: "FavoritesViewModel"
+description: "ViewModel for managing user's favorite stories"
+---
+
+## Overview
+
+The `FavoritesViewModel` class manages the user's favorite stories list and provides functionality to toggle favorites. It maintains both the full story objects and a set of favorite IDs for quick lookups.
+
+## Declaration
+
+```kotlin
+@HiltViewModel
+class FavoritesViewModel @Inject constructor(
+    private val storyRepository: StoryRepository,
+    private val authRepository: AuthRepository
+) : ViewModel()
+```
+
+**Package:** `com.example.casadehistorias.ui.favorites`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:16`
+
+## Annotations
+
+- `@HiltViewModel` - Enables Hilt dependency injection for ViewModel
+- `@Inject` - Constructor injection annotation
+
+## State Properties
+
+### favorites
+
+```kotlin
+val favorites: StateFlow<List<Story>>
+```
+
+StateFlow containing the list of favorited stories with full story data.
+
+**Type:** `StateFlow<List<Story>>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:22`
+
+### favoriteIds
+
+```kotlin
+val favoriteIds: StateFlow<Set<String>>
+```
+
+StateFlow containing a set of story IDs that are favorited. Useful for quick lookups when displaying favorite indicators.
+
+**Type:** `StateFlow<Set<String>>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:25`
+
+### isLoading
+
+```kotlin
+val isLoading: StateFlow<Boolean>
+```
+
+StateFlow indicating whether favorites are currently being loaded.
+
+**Type:** `StateFlow<Boolean>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:28`
+
+## Methods
+
+### loadFavorites
+
+```kotlin
+fun loadFavorites()
+```
+
+Loads the current user's favorite stories from Firestore.
+
+**Side effects:**
+- Sets `isLoading` to true during loading
+- Updates `favoriteIds` with the user's favorite story IDs
+- Updates `favorites` with full story objects
+- Sets `isLoading` to false when complete
+- If user is not authenticated, sets empty lists
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:34`
+
+### toggleFavorite
+
+```kotlin
+fun toggleFavorite(storyId: String)
+```
+
+Toggles a story's favorite status. If the story is currently favorited, it removes it; otherwise, it adds it.
+
+<ParamField path="storyId" type="String" required>
+  The unique identifier of the story to toggle
+</ParamField>
+
+**Side effects:**
+- Updates the user's favorites in Firestore
+- Immediately updates local state (`favoriteIds` and `favorites`) for responsive UI
+- If adding: fetches story data and appends to favorites list
+- If removing: filters story from favorites list
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:52`
+
+### isFavorite
+
+```kotlin
+fun isFavorite(storyId: String): Boolean
+```
+
+Checks whether a specific story is in the user's favorites.
+
+<ParamField path="storyId" type="String" required>
+  The unique identifier of the story to check
+</ParamField>
+
+**Returns:** `Boolean` - true if the story is favorited, false otherwise
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/favorites/FavoritesViewModel.kt:70`
+
+## Initialization
+
+The ViewModel automatically loads favorites when created:
+
+```kotlin
+init {
+    loadFavorites()
+}
+```
+
+## Usage Example
+
+```kotlin
+@Composable
+fun FavoritesScreen(
+    viewModel: FavoritesViewModel = hiltViewModel()
+) {
+    val favorites by viewModel.favorites.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    if (isLoading) {
+        LoadingIndicator()
+    } else if (favorites.isEmpty()) {
+        EmptyFavoritesView()
+    } else {
+        LazyColumn {
+            items(favorites) { story ->
+                StoryCard(
+                    story = story,
+                    isFavorite = true,
+                    onFavoriteClick = {
+                        viewModel.toggleFavorite(story.id)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StoryCard(
+    story: Story,
+    viewModel: FavoritesViewModel = hiltViewModel()
+) {
+    val isFavorite = viewModel.isFavorite(story.id)
+    
+    Card {
+        // Story content...
+        IconButton(
+            onClick = { viewModel.toggleFavorite(story.id) }
+        ) {
+            Icon(
+                imageVector = if (isFavorite) {
+                    Icons.Filled.Favorite
+                } else {
+                    Icons.Outlined.FavoriteBorder
+                }
+            )
+        }
+    }
+}
+```
+
+## Optimistic Updates
+
+The `toggleFavorite` method implements optimistic updates - the local state is updated immediately before the Firestore operation completes, providing a responsive user experience:
+
+```kotlin
+if (isFav) {
+    storyRepository.removeFromFavorites(storyId)
+    _favoriteIds.value = _favoriteIds.value - storyId
+    _favorites.value = _favorites.value.filter { it.id != storyId }
+} else {
+    storyRepository.addToFavorites(storyId)
+    _favoriteIds.value = _favoriteIds.value + storyId
+    // Fetch and add story to list...
+}
+```
+
+## Related
+
+- [StoryRepository](/api/repositories/story-repository) - Repository for story operations
+- [AuthRepository](/api/repositories/auth-repository) - Repository for user data
+- [Story](/api/models/story) - Story domain model

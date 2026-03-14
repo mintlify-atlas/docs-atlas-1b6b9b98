@@ -1,0 +1,169 @@
+---
+title: Architecture Overview
+description: Learn about Casa de Historias' architecture and design principles
+icon: building
+---
+
+Casa de Historias follows a modern Android architecture based on clean architecture principles, MVVM pattern, and reactive programming with Kotlin Coroutines and Flow.
+
+## Architecture Layers
+
+The app is organized into three main layers:
+
+<CardGroup cols={3}>
+  <Card title="Data Layer" icon="database" href="/architecture/data-layer">
+    Manages data sources including Firebase and Room database
+  </Card>
+  <Card title="Domain Layer" icon="box" href="/architecture/data-layer#domain-models">
+    Contains business logic and domain models
+  </Card>
+  <Card title="UI Layer" icon="paint-brush" href="/architecture/ui-layer">
+    Jetpack Compose screens and ViewModels
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+### Core Technologies
+
+- **Language**: Kotlin
+- **UI Framework**: Jetpack Compose
+- **Dependency Injection**: Hilt (Dagger)
+- **Navigation**: Jetpack Navigation Compose
+- **Async**: Kotlin Coroutines & Flow
+
+### Backend Services
+
+- **Authentication**: Firebase Auth
+- **Database**: Cloud Firestore
+- **Storage**: Firebase Storage
+- **Local Cache**: Room Database
+
+## Application Structure
+
+```kotlin
+com.example.casadehistorias/
+├── data/
+│   ├── firebase/          # Firebase repositories
+│   ├── local/             # Room database
+│   └── repository/        # Main repositories
+├── di/                    # Dependency injection modules
+├── domain/
+│   └── model/             # Domain models
+└── ui/
+    ├── auth/              # Authentication screens
+    ├── story/             # Story-related screens
+    ├── navigation/        # Navigation setup
+    └── theme/             # Theming
+```
+
+## Key Design Patterns
+
+### MVVM (Model-View-ViewModel)
+
+The app uses MVVM to separate UI logic from business logic:
+
+- **View**: Composable functions that display UI
+- **ViewModel**: Manages UI state and handles user interactions
+- **Model**: Domain models representing business entities
+
+### Repository Pattern
+
+Repositories abstract data sources and provide a clean API to the rest of the app:
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    fun getAllStoriesFlow(): Flow<List<Story>> =
+        firestoreRepository.getAllStoriesFlow().map { stories ->
+            stories.map { it.toDomainModel() }
+        }
+}
+```
+
+### Dependency Injection
+
+Hilt provides dependencies throughout the app with compile-time safety:
+
+```kotlin
+@HiltAndroidApp
+class CasaDeHistoriasApp : Application()
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    // Dependencies injected automatically
+}
+```
+
+## Data Flow
+
+The typical data flow in the app follows this pattern:
+
+<Steps>
+  <Step title="User Interaction">
+    User interacts with a Composable screen (e.g., clicks a button)
+  </Step>
+  <Step title="ViewModel Action">
+    Screen calls a ViewModel function to handle the interaction
+  </Step>
+  <Step title="Repository Call">
+    ViewModel uses a Repository to fetch/update data
+  </Step>
+  <Step title="Data Source">
+    Repository queries Firebase or Room database
+  </Step>
+  <Step title="State Update">
+    Data flows back through StateFlow to update UI
+  </Step>
+  <Step title="Recomposition">
+    Compose automatically recomposes affected UI elements
+  </Step>
+</Steps>
+
+## State Management
+
+State is managed using Kotlin's StateFlow:
+
+```kotlin
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel() {
+    private val _stories = MutableStateFlow<List<Story>>(emptyList())
+    val stories: StateFlow<List<Story>> = _stories.asStateFlow()
+}
+```
+
+UI observes state using `collectAsState()`:
+
+```kotlin
+@Composable
+fun StoryListScreen(viewModel: StoryViewModel) {
+    val stories by viewModel.stories.collectAsState()
+    // UI updates automatically when stories change
+}
+```
+
+<Note>
+The architecture prioritizes testability, separation of concerns, and reactive programming to create a maintainable and scalable codebase.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Data Layer" icon="database" href="/architecture/data-layer">
+    Explore repositories and data sources
+  </Card>
+  <Card title="UI Layer" icon="paint-brush" href="/architecture/ui-layer">
+    Learn about Compose screens and ViewModels
+  </Card>
+  <Card title="Navigation" icon="route" href="/architecture/navigation">
+    Understand navigation setup
+  </Card>
+  <Card title="Dependency Injection" icon="plug" href="/architecture/dependency-injection">
+    See how Hilt provides dependencies
+  </Card>
+</CardGroup>

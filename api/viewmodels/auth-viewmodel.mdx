@@ -1,0 +1,253 @@
+---
+title: "AuthViewModel"
+description: "ViewModel for managing authentication and user profile state"
+---
+
+## Overview
+
+The `AuthViewModel` class manages authentication state, user sign in/sign up operations, and user profile data. It exposes reactive state flows for UI components to observe authentication changes.
+
+## Declaration
+
+```kotlin
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel()
+```
+
+**Package:** `com.example.casadehistorias.ui.auth`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:16`
+
+## Annotations
+
+- `@HiltViewModel` - Enables Hilt dependency injection for ViewModel
+- `@Inject` - Constructor injection annotation
+
+## State Properties
+
+### authState
+
+```kotlin
+val authState: StateFlow<AuthState>
+```
+
+StateFlow representing the current authentication state.
+
+**Type:** `StateFlow<AuthState>`
+
+**Possible Values:**
+- `AuthState.Loading` - Authentication operation in progress
+- `AuthState.Unauthenticated` - No user is authenticated
+- `AuthState.Authenticated(user)` - User is authenticated with FirebaseUser
+- `AuthState.Error(message)` - Authentication error occurred
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:21`
+
+### userProfile
+
+```kotlin
+val userProfile: StateFlow<UserProfile?>
+```
+
+StateFlow containing the authenticated user's profile data.
+
+**Type:** `StateFlow<UserProfile?>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:24`
+
+### isLoggedIn
+
+```kotlin
+val isLoggedIn: Boolean get() = authRepository.currentUser != null
+```
+
+Property indicating if a user is currently logged in. Useful for determining initial navigation destination.
+
+**Type:** `Boolean`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:27`
+
+## Methods
+
+### signIn
+
+```kotlin
+fun signIn(email: String, password: String)
+```
+
+Authenticates a user with email and password.
+
+<ParamField path="email" type="String" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  User's password
+</ParamField>
+
+**Side effects:**
+- Sets `authState` to `AuthState.Loading` during authentication
+- Sets `authState` to `AuthState.Error` if authentication fails
+- Automatically transitions to `AuthState.Authenticated` on success (via authState observer)
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:43`
+
+### signUp
+
+```kotlin
+fun signUp(
+    email: String, 
+    password: String, 
+    displayName: String, 
+    community: String
+)
+```
+
+Creates a new user account.
+
+<ParamField path="email" type="String" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  User's password
+</ParamField>
+
+<ParamField path="displayName" type="String" required>
+  User's display name
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  User's community name
+</ParamField>
+
+**Side effects:**
+- Sets `authState` to `AuthState.Loading` during account creation
+- Sets `authState` to `AuthState.Error` if creation fails
+- Creates user profile in Firestore
+- Automatically transitions to `AuthState.Authenticated` on success
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:55`
+
+### signOut
+
+```kotlin
+fun signOut()
+```
+
+Signs out the current user.
+
+**Side effects:**
+- Clears authentication state
+- Sets `authState` to `AuthState.Unauthenticated`
+- Clears `userProfile`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:69`
+
+### updateProfile
+
+```kotlin
+fun updateProfile(displayName: String, community: String)
+```
+
+Updates the current user's profile information.
+
+<ParamField path="displayName" type="String" required>
+  Updated display name
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  Updated community name
+</ParamField>
+
+**Side effects:**
+- Updates user profile in Firestore
+- Updates local `userProfile` state on success
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:75`
+
+## AuthState Sealed Class
+
+```kotlin
+sealed class AuthState {
+    object Loading : AuthState()
+    object Unauthenticated : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/auth/AuthViewModel.kt:97`
+
+Represents the different states of authentication:
+
+<ParamField path="Loading" type="object">
+  Authentication operation in progress
+</ParamField>
+
+<ParamField path="Unauthenticated" type="object">
+  No user is currently authenticated
+</ParamField>
+
+<ParamField path="Authenticated" type="data class">
+  User is authenticated. Contains the `FirebaseUser` object
+</ParamField>
+
+<ParamField path="Error" type="data class">
+  Authentication error occurred. Contains error message string
+</ParamField>
+
+## Initialization
+
+The ViewModel automatically observes authentication state changes:
+
+```kotlin
+init {
+    viewModelScope.launch {
+        authRepository.authState.collect { user ->
+            if (user != null) {
+                _authState.value = AuthState.Authenticated(user)
+                loadUserProfile(user.uid)
+            } else {
+                _authState.value = AuthState.Unauthenticated
+                _userProfile.value = null
+            }
+        }
+    }
+}
+```
+
+## Usage Example
+
+```kotlin
+@Composable
+fun LoginScreen(
+    viewModel: AuthViewModel = hiltViewModel(),
+    onLoginSuccess: () -> Unit
+) {
+    val authState by viewModel.authState.collectAsState()
+    
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Authenticated) {
+            onLoginSuccess()
+        }
+    }
+
+    when (val state = authState) {
+        is AuthState.Loading -> LoadingIndicator()
+        is AuthState.Error -> ErrorMessage(state.message)
+        else -> LoginForm(
+            onSignIn = { email, password ->
+                viewModel.signIn(email, password)
+            }
+        )
+    }
+}
+```
+
+## Related
+
+- [AuthRepository](/api/repositories/auth-repository) - Repository for authentication
+- [UserProfile](/api/models/user-profile) - User profile data model

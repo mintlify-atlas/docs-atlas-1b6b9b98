@@ -1,0 +1,267 @@
+---
+title: "AddStoryViewModel"
+description: "ViewModel for creating and updating stories with file uploads"
+---
+
+## Overview
+
+The `AddStoryViewModel` class manages the creation and updating of stories, including image and audio file uploads to Firebase Storage. It provides UI state management for the story submission process.
+
+## Declaration
+
+```kotlin
+@HiltViewModel
+class AddStoryViewModel @Inject constructor(
+    private val repository: StoryRepository,
+    private val storageRepository: StorageRepository
+) : ViewModel()
+```
+
+**Package:** `com.example.casadehistorias.ui.story`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:18`
+
+## Annotations
+
+- `@HiltViewModel` - Enables Hilt dependency injection for ViewModel
+- `@Inject` - Constructor injection annotation
+
+## State Properties
+
+### uiState
+
+```kotlin
+val uiState: StateFlow<AddStoryUiState>
+```
+
+StateFlow representing the current UI state of the story creation/update process.
+
+**Type:** `StateFlow<AddStoryUiState>`
+
+**Possible Values:**
+- `AddStoryUiState.Idle` - Initial state, no operation in progress
+- `AddStoryUiState.Loading` - Story is being uploaded
+- `AddStoryUiState.Success` - Story was successfully saved
+- `AddStoryUiState.Error(message)` - An error occurred with error message
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:24`
+
+## Methods
+
+### addStory
+
+```kotlin
+fun addStory(
+    titleEs: String,
+    titleNahuatl: String,
+    contentEs: String,
+    contentNahuatl: String,
+    narratorName: String,
+    community: String,
+    imageUri: Uri? = null,
+    audioUri: Uri? = null,
+    latitude: Double? = null,
+    longitude: Double? = null,
+    tags: List<String> = emptyList()
+)
+```
+
+Creates a new story with the provided data and optional media files.
+
+<ParamField path="titleEs" type="String" required>
+  Story title in Spanish
+</ParamField>
+
+<ParamField path="titleNahuatl" type="String" required>
+  Story title in Nahuatl
+</ParamField>
+
+<ParamField path="contentEs" type="String" required>
+  Full story content in Spanish
+</ParamField>
+
+<ParamField path="contentNahuatl" type="String" required>
+  Full story content in Nahuatl
+</ParamField>
+
+<ParamField path="narratorName" type="String" required>
+  Name of the story narrator
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  Community where the story originated
+</ParamField>
+
+<ParamField path="imageUri" type="Uri?" default="null">
+  Optional URI of the cover image to upload
+</ParamField>
+
+<ParamField path="audioUri" type="Uri?" default="null">
+  Optional URI of the audio file to upload
+</ParamField>
+
+<ParamField path="latitude" type="Double?" default="null">
+  Optional geographic latitude
+</ParamField>
+
+<ParamField path="longitude" type="Double?" default="null">
+  Optional geographic longitude
+</ParamField>
+
+<ParamField path="tags" type="List<String>" default="emptyList()">
+  Optional list of tags for categorization
+</ParamField>
+
+**Side effects:**
+- Sets `uiState` to `Loading` during upload
+- Uploads image to Firebase Storage if `imageUri` provided
+- Creates story in Firestore
+- Sets `uiState` to `Success` if successful, or `Error` if failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:26`
+
+### updateStory
+
+```kotlin
+fun updateStory(story: Story, newImageUri: Uri? = null)
+```
+
+Updates an existing story with optional new cover image.
+
+<ParamField path="story" type="Story" required>
+  The story object with updated data
+</ParamField>
+
+<ParamField path="newImageUri" type="Uri?" default="null">
+  Optional URI of a new cover image to upload
+</ParamField>
+
+**Side effects:**
+- Sets `uiState` to `Loading` during update
+- Uploads new image to Firebase Storage if `newImageUri` provided
+- Updates story in Firestore
+- Sets `uiState` to `Success` if successful, or `Error` if failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:72`
+
+### resetState
+
+```kotlin
+fun resetState()
+```
+
+Resets the UI state back to `Idle`. Call this when navigating away from the form or after handling success/error states.
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:94`
+
+## AddStoryUiState Sealed Class
+
+```kotlin
+sealed class AddStoryUiState {
+    object Idle : AddStoryUiState()
+    object Loading : AddStoryUiState()
+    object Success : AddStoryUiState()
+    data class Error(val message: String) : AddStoryUiState()
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/AddStoryViewModel.kt:99`
+
+Represents the different UI states:
+
+<ParamField path="Idle" type="object">
+  Initial state, no operation in progress
+</ParamField>
+
+<ParamField path="Loading" type="object">
+  Story upload/update in progress
+</ParamField>
+
+<ParamField path="Success" type="object">
+  Story was successfully saved
+</ParamField>
+
+<ParamField path="Error" type="data class">
+  Operation failed. Contains error message string
+</ParamField>
+
+## Usage Example
+
+```kotlin
+@Composable
+fun AddStoryScreen(
+    viewModel: AddStoryViewModel = hiltViewModel(),
+    onNavigateBack: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is AddStoryUiState.Success -> {
+                // Show success message
+                onNavigateBack()
+            }
+            is AddStoryUiState.Error -> {
+                // Show error message
+            }
+            else -> {}
+        }
+    }
+
+    AddStoryForm(
+        onSubmit = { formData ->
+            viewModel.addStory(
+                titleEs = formData.titleEs,
+                titleNahuatl = formData.titleNahuatl,
+                contentEs = formData.contentEs,
+                contentNahuatl = formData.contentNahuatl,
+                narratorName = formData.narratorName,
+                community = formData.community,
+                imageUri = formData.imageUri,
+                tags = formData.tags
+            )
+        },
+        isLoading = uiState is AddStoryUiState.Loading
+    )
+}
+```
+
+## File Upload Process
+
+The ViewModel handles file uploads in the following order:
+
+1. Generate temporary story ID using `UUID.randomUUID()`
+2. Upload image to Firebase Storage (if provided)
+3. Get download URL from uploaded image
+4. Create Story object with image URL
+5. Save story to Firestore
+6. Return final story ID
+
+```kotlin
+val tempId = UUID.randomUUID().toString()
+var uploadedImgUrl: String? = null
+if (imageUri != null) {
+    uploadedImgUrl = storageRepository.uploadImage(imageUri, tempId)
+}
+```
+
+## Error Handling
+
+Errors are captured and exposed through the `uiState`:
+
+```kotlin
+val resultId = repository.addStory(newStory)
+if (resultId != null) {
+    _uiState.value = AddStoryUiState.Success
+} else {
+    _uiState.value = AddStoryUiState.Error(
+        "No se pudo guardar la historia. Verifica tu conexión."
+    )
+}
+```
+
+## Related
+
+- [StoryRepository](/api/repositories/story-repository) - Repository for story operations
+- [StorageRepository](/api/repositories/storage-repository) - Repository for file uploads
+- [Story](/api/models/story) - Story domain model

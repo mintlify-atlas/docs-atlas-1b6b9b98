@@ -1,122 +1,127 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Casa de Historias",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#06B6D4",
+    "light": "#F43F5E",
+    "dark": "#0891B2"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/joseorteha/app-leyendas"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/joseorteha/app-leyendas"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "features",
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "User Guide",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guide/authentication",
+              "guide/browsing-stories",
+              "guide/creating-stories",
+              "guide/favorites",
+              "guide/map-exploration",
+              "guide/nahuatl-dictionary"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Architecture",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "architecture/overview",
+              "architecture/data-layer",
+              "architecture/ui-layer",
+              "architecture/navigation",
+              "architecture/dependency-injection"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Development",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Setup",
             "pages": [
-              "api-reference/introduction"
+              "development/setup",
+              "development/building",
+              "development/firebase-setup"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Components",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "development/compose-ui",
+              "development/theme-system",
+              "development/screens"
+            ]
+          },
+          {
+            "group": "Data & Storage",
+            "pages": [
+              "development/firestore",
+              "development/firebase-auth",
+              "development/firebase-storage",
+              "development/room-database"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Domain Models",
+            "pages": [
+              "api/models/story",
+              "api/models/user-profile"
+            ]
+          },
+          {
+            "group": "Repositories",
+            "pages": [
+              "api/repositories/story-repository",
+              "api/repositories/auth-repository",
+              "api/repositories/firestore-repository",
+              "api/repositories/storage-repository"
+            ]
+          },
+          {
+            "group": "ViewModels",
+            "pages": [
+              "api/viewmodels/story-viewmodel",
+              "api/viewmodels/auth-viewmodel",
+              "api/viewmodels/favorites-viewmodel",
+              "api/viewmodels/search-viewmodel",
+              "api/viewmodels/add-story-viewmodel"
+            ]
+          },
+          {
+            "group": "Navigation",
+            "pages": [
+              "api/navigation/screens",
+              "api/navigation/nav-graph"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

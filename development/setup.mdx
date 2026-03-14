@@ -1,0 +1,231 @@
+---
+title: 'Development Setup'
+description: 'Set up your development environment for Casa de Historias'
+icon: 'screwdriver-wrench'
+---
+
+This guide will help you set up your development environment for Casa de Historias, an Android app built with Kotlin and Jetpack Compose.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={2}>
+  <Card title="Android Studio" icon="android">
+    **Version**: Ladybug (2024.2.1) or later
+    
+    Download from [developer.android.com](https://developer.android.com/studio)
+  </Card>
+  
+  <Card title="Java Development Kit" icon="java">
+    **Version**: JDK 17 or higher
+    
+    Required for Kotlin compilation
+  </Card>
+  
+  <Card title="Git" icon="git-alt">
+    **Version**: Latest stable
+    
+    For version control and repository management
+  </Card>
+  
+  <Card title="Firebase Account" icon="fire">
+    Required for backend services
+    
+    Sign up at [firebase.google.com](https://firebase.google.com)
+  </Card>
+</CardGroup>
+
+## System Requirements
+
+<Info>
+  Casa de Historias targets Android devices with the following specifications:
+  - **Minimum SDK**: Android 8.0 (API 26)
+  - **Target SDK**: Android 15 (API 35)
+  - **Compile SDK**: Android 15 (API 35)
+</Info>
+
+### Development Machine Requirements
+
+- **RAM**: 8 GB minimum, 16 GB recommended
+- **Disk Space**: 10 GB free space for Android SDK and emulator images
+- **Operating System**: Windows 10/11, macOS 10.14+, or Linux
+
+## Project Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the Casa de Historias repository from GitHub:
+    
+    ```bash
+    git clone https://github.com/joseorteha/app-leyendas.git
+    cd app-leyendas
+    ```
+  </Step>
+  
+  <Step title="Open in Android Studio">
+    1. Launch Android Studio
+    2. Select **Open an Existing Project**
+    3. Navigate to the cloned repository directory
+    4. Click **OK** to open the project
+    
+    <Note>
+      Android Studio will automatically start syncing Gradle dependencies. This may take several minutes on the first run.
+    </Note>
+  </Step>
+  
+  <Step title="Configure SDK and Tools">
+    Android Studio will prompt you to install any missing SDK components. Ensure the following are installed:
+    
+    - Android SDK Platform 35
+    - Android SDK Build-Tools 35.0.0
+    - Android Emulator
+    - Android SDK Platform-Tools
+    
+    You can verify and install these via **Tools** → **SDK Manager**.
+  </Step>
+  
+  <Step title="Set up Firebase">
+    Firebase configuration is required for the app to function. See the [Firebase Setup](/development/firebase-setup) guide for detailed instructions.
+    
+    <Warning>
+      The app will not build successfully without a valid `google-services.json` file in the `app/` directory.
+    </Warning>
+  </Step>
+  
+  <Step title="Sync Gradle">
+    After Firebase setup, sync the project with Gradle files:
+    
+    1. Click **File** → **Sync Project with Gradle Files**
+    2. Wait for the sync to complete
+    3. Verify there are no errors in the **Build** output
+  </Step>
+</Steps>
+
+## Project Structure
+
+The project follows a standard Android application structure:
+
+```plaintext
+app-leyendas/
+├── app/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/example/casadehistorias/
+│   │   │   │   ├── data/          # Data layer (repositories, models)
+│   │   │   │   ├── ui/            # UI layer (screens, components)
+│   │   │   │   ├── di/            # Dependency injection
+│   │   │   │   └── MainActivity.kt
+│   │   │   └── AndroidManifest.xml
+│   │   └── test/                  # Unit tests
+│   ├── build.gradle.kts           # App-level build configuration
+│   └── google-services.json       # Firebase configuration
+├── build.gradle.kts               # Project-level build configuration
+├── gradle.properties              # Gradle properties
+└── settings.gradle.kts            # Project settings
+```
+
+## Gradle Configuration
+
+The project uses Kotlin DSL for Gradle configuration with a version catalog for dependency management.
+
+### Key Configuration Files
+
+<Accordion title="gradle.properties" icon="gear">
+  Project-wide Gradle settings from `gradle.properties:9-11`:
+  
+  ```properties
+  org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+  ksp.incremental=true
+  ksp.incremental.log=true
+  ```
+  
+  These settings optimize build performance and enable incremental KSP processing.
+</Accordion>
+
+<Accordion title="Version Catalog" icon="book">
+  Dependencies are managed via `gradle/libs.versions.toml`. Key versions:
+  
+  - **Android Gradle Plugin**: 8.7.2
+  - **Kotlin**: 2.0.21
+  - **Compose BOM**: 2024.10.00
+  - **Firebase BOM**: 33.5.1
+  - **Hilt**: 2.51.1
+  - **Room**: 2.6.1
+</Accordion>
+
+## Verify Installation
+
+To verify your setup is correct:
+
+<Steps>
+  <Step title="Build the project">
+    Run a Gradle build to ensure all dependencies are resolved:
+    
+    ```bash
+    ./gradlew build
+    ```
+    
+    See [Building the App](/development/building) for more build options.
+  </Step>
+  
+  <Step title="Run on emulator">
+    1. Create an Android Virtual Device (AVD) via **Tools** → **Device Manager**
+    2. Select a device with API 26 or higher
+    3. Click the **Run** button (green triangle) in Android Studio
+  </Step>
+</Steps>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Gradle sync fails with missing google-services.json">
+    This is expected if you haven't set up Firebase yet. Follow the [Firebase Setup](/development/firebase-setup) guide to obtain and configure this file.
+  </Accordion>
+  
+  <Accordion title="SDK not found errors">
+    Ensure Android SDK is properly configured:
+    
+    1. Open **File** → **Project Structure** → **SDK Location**
+    2. Verify the Android SDK location is set correctly
+    3. Install missing SDK components via **SDK Manager**
+  </Accordion>
+  
+  <Accordion title="Build fails with Java version mismatch">
+    The project requires JDK 17. Set it in Android Studio:
+    
+    1. Go to **File** → **Project Structure** → **SDK Location**
+    2. Set **Gradle JDK** to version 17 or higher
+    3. Sync Gradle and rebuild
+  </Accordion>
+  
+  <Accordion title="KSP processing errors">
+    Clean and rebuild the project:
+    
+    ```bash
+    ./gradlew clean build
+    ```
+    
+    This regenerates annotation-processed code (Hilt, Room).
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Building the App" icon="hammer" href="/development/building">
+    Learn how to build debug and release versions
+  </Card>
+  
+  <Card title="Firebase Setup" icon="fire" href="/development/firebase-setup">
+    Configure Firebase services for the app
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the app's architecture and design patterns
+  </Card>
+  
+  <Card title="Compose UI" icon="palette" href="/development/compose-ui">
+    Learn about the UI component system
+  </Card>
+</CardGroup>

@@ -1,0 +1,320 @@
+---
+title: Features
+description: Comprehensive overview of Casa de Historias features and capabilities
+---
+
+## Core Features
+
+Casa de Historias provides a rich set of features designed to preserve and share indigenous legends effectively.
+
+### Story Discovery & Browsing
+
+<CardGroup cols={2}>
+  <Card title="Discover Feed" icon="compass">
+    Curated homepage with newest stories, audio recordings, and community highlights
+  </Card>
+  
+  <Card title="Story List" icon="list">
+    Browse all available stories with search and filtering capabilities
+  </Card>
+  
+  <Card title="Interactive Map" icon="map-location-dot">
+    Explore stories geographically using MapLibre for location-based discovery
+  </Card>
+  
+  <Card title="Search" icon="magnifying-glass">
+    Full-text search across titles, content, narrator names, and communities
+  </Card>
+</CardGroup>
+
+#### Discover Screen
+
+The Discover screen (`DiscoverScreen.kt`) provides an engaging entry point with multiple content sections:
+
+```kotlin DiscoverScreen.kt:77
+LazyColumn(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(padding),
+    contentPadding = PaddingValues(vertical = 16.dp),
+    verticalArrangement = Arrangement.spacedBy(24.dp)
+) {
+    item {
+        SectionTitle(
+            title = "Lo más nuevo",
+            actionText = "Ver todo",
+            onActionClick = onNavigateToStoryList
+        )
+        val recentStories = stories.sortedByDescending { it.createdAt }.take(5)
+        // ... Featured story cards
+    }
+    // Additional sections: Audio stories, Learning resources, Communities
+}
+```
+
+<Note>
+The discover screen intelligently filters stories with audio recordings and groups them by community for easier navigation.
+</Note>
+
+### Bilingual Content Support
+
+Every story in Casa de Historias is presented in both Spanish and Nahuatl:
+
+- **Spanish (Español)** - Accessible to wider Spanish-speaking audiences
+- **Nahuatl** - Preserves the indigenous language and authentic cultural expression
+
+Users can seamlessly switch between languages to compare translations or learn vocabulary.
+
+### Audio Integration
+
+<Tip>
+Audio recordings preserve the authentic pronunciation, intonation, and storytelling style of indigenous narrators.
+</Tip>
+
+The app uses **Media3/ExoPlayer** for professional audio playback:
+
+```kotlin build.gradle.kts:72
+// Media3 / ExoPlayer (audio playback)
+implementation(libs.media3.exoplayer)
+implementation(libs.media3.ui)
+implementation(libs.media3.session)
+```
+
+Audio features include:
+- Play/pause controls
+- Audio streaming from Firebase Storage
+- Playback progress tracking
+- Background audio support via Media3 Session
+
+### Story Creation & Editing
+
+Authenticated users can contribute their own stories:
+
+<Steps>
+  <Step title="Add Story Screen">
+    Navigate to the story creation interface from the main story list
+  </Step>
+  
+  <Step title="Enter Bilingual Content">
+    Provide title and content in both Spanish and Nahuatl
+  </Step>
+  
+  <Step title="Add Metadata">
+    Include narrator name, community, tags, and optional location coordinates
+  </Step>
+  
+  <Step title="Upload Media">
+    Optionally attach images and audio recordings
+  </Step>
+  
+  <Step title="Publish">
+    Submit the story to Firebase Firestore for cloud storage and sharing
+  </Step>
+</Steps>
+
+The `AddStoryScreen.kt` and `EditStoryScreen.kt` components provide full CRUD operations for story management.
+
+### Geographic Features
+
+Stories can be linked to specific locations in Sierra de Zongolica:
+
+```kotlin Story.kt:13
+val latitude: Double? = null,
+val longitude: Double? = null,
+```
+
+The **Story Map** screen uses **MapLibre** (an open-source alternative to Google Maps) to display stories on an interactive map:
+
+```kotlin build.gradle.kts:65
+// MapLibre (replaces Google Maps)
+implementation(libs.maplibre.android)
+```
+
+<CardGroup cols={2}>
+  <Card title="Location Permissions" icon="location-dot">
+    The app requests fine and coarse location permissions for map features
+  </Card>
+  
+  <Card title="Offline Maps" icon="map">
+    MapLibre provides offline map capabilities for rural areas with limited connectivity
+  </Card>
+</CardGroup>
+
+### Favorites System
+
+Users can save stories to their personal favorites collection:
+
+```kotlin FirestoreRepository.kt:179
+suspend fun addToFavorites(userId: String, storyId: String): Boolean {
+    return try {
+        firestore.collection("users").document(userId)
+            .update("favoriteStories", 
+                com.google.firebase.firestore.FieldValue.arrayUnion(storyId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+Favorites are:
+- Synced to Firebase for access across devices
+- Available offline via Room database
+- Managed through the `FavoritesViewModel` and `FavoritesScreen`
+
+### Authentication & User Profiles
+
+Firebase Authentication provides secure user management:
+
+```kotlin build.gradle.kts:59
+// Firebase
+implementation(platform(libs.firebase.bom))
+implementation(libs.firebase.analytics)
+implementation(libs.firebase.firestore)
+implementation(libs.firebase.auth)
+implementation(libs.firebase.storage)
+```
+
+Features include:
+- Email/password authentication
+- User profile management
+- Story authorship tracking
+- Personalized favorites and contributions
+
+### Nahuatl Dictionary
+
+The app includes a dedicated dictionary feature for language learning:
+
+<Card title="Diccionario Náhuatl" icon="book">
+  Learn Nahuatl words and phrases from the Sierra de Zongolica region with translations and cultural context
+</Card>
+
+Accessed from the Discover screen, the dictionary helps users understand vocabulary encountered in stories.
+
+### Offline Support
+
+Casa de Historias is designed for use in rural areas with intermittent connectivity:
+
+<CardGroup cols={2}>
+  <Card title="Room Database" icon="database">
+    Local caching of stories, favorites, and user data
+  </Card>
+  
+  <Card title="Sync on Connect" icon="rotate">
+    Automatic synchronization with Firebase when internet is available
+  </Card>
+</CardGroup>
+
+```kotlin build.gradle.kts:77
+// Room
+implementation(libs.androidx.room.runtime)
+implementation(libs.androidx.room.ktx)
+ksp(libs.androidx.room.compiler)
+```
+
+### Modern Android Architecture
+
+The app follows modern Android development best practices:
+
+<CardGroup cols={3}>
+  <Card title="Jetpack Compose" icon="mobile">
+    Declarative UI with Material 3 design
+  </Card>
+  
+  <Card title="Hilt DI" icon="puzzle-piece">
+    Dependency injection for clean architecture
+  </Card>
+  
+  <Card title="MVVM Pattern" icon="layer-group">
+    Separation of concerns with ViewModels
+  </Card>
+</CardGroup>
+
+```kotlin MainActivity.kt:14
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            CasaDeHistoriasTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    MainContainer()
+                }
+            }
+        }
+    }
+}
+```
+
+### Navigation
+
+The app uses Jetpack Navigation Compose with a bottom navigation bar:
+
+```kotlin MainContainer.kt:50
+val bottomNavItems = listOf(
+    BottomNavItem("Explorar", Screen.Discover.route, 
+        Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+    BottomNavItem("Leyendas", Screen.StoryList.route, 
+        Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
+    BottomNavItem("Mapa", Screen.StoryMap.route, 
+        Icons.Filled.Explore, Icons.Outlined.Explore),
+    BottomNavItem("Favoritos", Screen.Favorites.route, 
+        Icons.Filled.Favorite, Icons.Outlined.FavoriteBorder),
+    BottomNavItem("Perfil", Screen.Profile.route, 
+        Icons.Filled.Person, Icons.Outlined.Person)
+)
+```
+
+## Technical Specifications
+
+### Minimum Requirements
+
+<Warning>
+The app requires Android 8.0 (API 26) or higher to run.
+</Warning>
+
+```kotlin build.gradle.kts:16
+minSdk = 26
+targetSdk = 35
+compileSdk = 35
+```
+
+### Permissions
+
+Required permissions declared in `AndroidManifest.xml`:
+
+```xml AndroidManifest.xml:5
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- Permisos para ubicación (MapLibre) -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+### Performance Optimizations
+
+- **Coil** for efficient image loading with caching
+- **Lazy loading** for story lists and content
+- **Incremental compilation** with KSP for faster builds
+- **ProGuard** enabled for release builds to reduce APK size
+
+```kotlin build.gradle.kts:25
+buildTypes {
+    release {
+        isMinifyEnabled = true
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
+    }
+}
+```
+
+## Next Steps
+
+<Card title="Installation Guide" icon="download" href="/installation">
+  Ready to build the app? Follow our installation guide to set up your development environment
+</Card>

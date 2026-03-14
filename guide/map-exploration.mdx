@@ -1,0 +1,166 @@
+---
+title: Map Exploration
+description: Discover legends by their geographic locations in the Sierra de Zongolica
+icon: "map-location-dot"
+---
+
+The Map feature provides a geographic view of indigenous legends, showing where stories originate or take place. This helps you discover legends connected to specific locations.
+
+## Accessing the Map
+
+Navigate to the Map screen from the bottom navigation:
+
+1. Look for the map icon in the bottom navigation bar
+2. Tap "Mapa de Leyendas" or the map tab
+3. The map loads centered on the Sierra de Zongolica region
+
+## Map Interface
+
+### Map Technology
+
+Casa de Historias uses:
+- **MapLibre** - Open-source mapping library
+- **OpenFreeMap tiles** - Free and open map data
+- **Liberty style** - Clear, readable map appearance
+
+### Default View
+
+The map opens centered on:
+- **Coordinates**: 18.6667°N, 97.0000°W
+- **Region**: Sierra de Zongolica, Veracruz
+- **Zoom level**: 9.0 (regional view)
+
+<Note>
+  The Sierra de Zongolica is the heart of Náhuatl-speaking communities in Veracruz, where many of these legends originate.
+</Note>
+
+## Story Markers
+
+Stories with location information appear as markers on the map.
+
+### What Markers Show
+
+Each marker represents:
+- **Location**: The geographic coordinates where the story takes place or originates
+- **Title**: Story name in Spanish
+- **Snippet**: "Narrado por [narrator name]"
+
+### Interacting with Markers
+
+<Steps>
+  <Step title="Tap a marker">
+    Tap any marker pin on the map.
+  </Step>
+  
+  <Step title="View the story preview">
+    A bottom sheet slides up showing:
+    - Story title in Spanish
+    - Story title in Náhuatl (if available)
+    - Preview of the story content (first 3 lines)
+    - Narrator information
+  </Step>
+  
+  <Step title="Read the full story">
+    Tap "Leer leyenda completa" button to open the complete story detail.
+  </Step>
+</Steps>
+
+### Closing the Preview
+
+To dismiss the bottom sheet:
+- Swipe down on the drag handle
+- Tap outside the sheet area
+- The sheet closes and you return to the map view
+
+## Navigating the Map
+
+Standard map controls:
+- **Pan**: Drag with one finger to move around
+- **Zoom**: Pinch to zoom in/out
+- **Rotate**: Two-finger rotate gesture (if enabled)
+
+<Card title="Exploring Regions" icon="compass">
+  Pan around the Sierra de Zongolica to discover stories from different communities and municipalities.
+</Card>
+
+## Empty States
+
+If no stories have location data:
+
+- Map icon emoji (🗺️)
+- Heading: "Sin ubicaciones"
+- Message: "Aún no hay historias con ubicación en el mapa"
+
+<Note>
+  Only stories created with a location marker appear on the map. Older stories without location data won't show markers.
+</Note>
+
+## How Location Data Works
+
+When creating a story:
+1. Authors can tap the map to mark a location
+2. The coordinates (latitude and longitude) are saved with the story
+3. The story appears as a marker on the Map screen
+4. Users can tap the marker to discover the story
+
+### Stories With Locations
+
+The map filters the story collection to show only:
+- Stories with both latitude and longitude data
+- Valid coordinates within reasonable bounds
+- Published stories (not drafts)
+
+## Bottom Sheet Details
+
+The story preview bottom sheet includes:
+
+### Header
+- **Title in Spanish**: Large, bold text
+- **Title in Náhuatl**: Italic style in sacred water color (AguaSagrada)
+
+### Content
+- **Story preview**: First portion of the Spanish text
+- **Text overflow**: Shows "..." if content is truncated
+- **Max lines**: 3 lines of preview text
+
+### Action Button
+- **Button text**: "Leer leyenda completa"
+- **Style**: Full-width, rounded corners, aqua color
+- **Action**: Opens the full story detail screen
+
+<Warning>
+  The bottom sheet automatically closes when you navigate to the story detail. Use the back button to return to the map.
+</Warning>
+
+## Use Cases
+
+<Card title="Why Use the Map?" icon="route">
+  - **Geographic discovery** - Find legends from specific areas
+  - **Cultural tourism** - Plan visits to locations mentioned in stories
+  - **Community connection** - See how stories cluster in certain regions
+  - **Education** - Understand the geographic context of legends
+  - **Preservation** - Document where oral traditions originate
+</Card>
+
+## Tips for Map Exploration
+
+- Zoom in to see markers more clearly in dense areas
+- Explore different municipalities to discover regional variations
+- Use the map alongside community filters on the Discover screen
+- Encourage story creators to add locations when publishing
+
+## Technical Details
+
+### Map Data
+- **Tile source**: https://tiles.openfreemap.org/styles/liberty
+- **Map library**: MapLibre GL Native for Android
+- **Coordinate system**: WGS84 (standard GPS coordinates)
+
+### Performance
+- Map tiles are cached for offline viewing (where supported)
+- Markers are rendered efficiently even with many stories
+- The map view pauses/resumes appropriately when navigating away
+
+<Note>
+  The map requires an internet connection to load new areas. Previously viewed areas may be available from cache.
+</Note>

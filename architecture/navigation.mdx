@@ -1,0 +1,405 @@
+---
+title: Navigation
+description: Learn about the navigation architecture using Jetpack Navigation Compose
+icon: route
+---
+
+Casa de Historias uses Jetpack Navigation Compose for type-safe, declarative navigation between screens.
+
+## Navigation Architecture
+
+### Screen Routes
+
+All navigation routes are defined using a sealed class:
+
+```kotlin NavGraph.kt
+sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
+    object Discover : Screen("discover")
+    object Dictionary : Screen("dictionary")
+    object Login : Screen("login")
+    object SignUp : Screen("signup")
+    object StoryList : Screen("story_list")
+    object AddStory : Screen("add_story")
+    object StoryMap : Screen("story_map")
+    object Favorites : Screen("favorites")
+    object Profile : Screen("profile")
+    object Search : Screen("search")
+    object Settings : Screen("settings")
+    
+    // Routes with parameters
+    object StoryDetail : Screen("story_detail/{storyId}") {
+        fun createRoute(storyId: String) = "story_detail/$storyId"
+    }
+    
+    object EditStory : Screen("edit_story/{storyId}") {
+        fun createRoute(storyId: String) = "edit_story/$storyId"
+    }
+}
+```
+
+<Info>
+Using a sealed class provides compile-time safety and prevents typos in route strings.
+</Info>
+
+## NavGraph Setup
+
+The main navigation graph configures all screens and their transitions:
+
+```kotlin NavGraph.kt
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+) {
+    val storyViewModel: StoryViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onContinue = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate(Screen.StoryList.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateToSignUp = {
+                    navController.navigate(Screen.SignUp.route)
+                }
+            )
+        }
+
+        composable(Screen.StoryList.route) {
+            StoryListScreen(
+                viewModel = storyViewModel,
+                onStoryClick = { storyId ->
+                    navController.navigate(Screen.StoryDetail.createRoute(storyId))
+                },
+                onAddStoryClick = {
+                    navController.navigate(Screen.AddStory.route)
+                }
+            )
+        }
+        
+        // More routes...
+    }
+}
+```
+
+## Navigation Patterns
+
+### Simple Navigation
+
+Navigate to a screen without parameters:
+
+```kotlin
+navController.navigate(Screen.Discover.route)
+```
+
+### Navigation with Arguments
+
+Navigate to a screen with parameters:
+
+```kotlin
+// Navigate to detail screen
+navController.navigate(Screen.StoryDetail.createRoute(storyId))
+
+// Define the route with arguments
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    StoryDetailScreen(storyId = storyId)
+}
+```
+
+### Pop Back Stack
+
+Return to the previous screen:
+
+```kotlin
+navController.popBackStack()
+```
+
+### Clear Back Stack
+
+Navigate and clear the entire back stack (e.g., after login):
+
+```kotlin
+navController.navigate(Screen.StoryList.route) {
+    popUpTo(0) { inclusive = true }
+}
+```
+
+### Pop Up To
+
+Navigate and pop up to a specific destination:
+
+```kotlin
+navController.navigate(Screen.Login.route) {
+    popUpTo(Screen.Welcome.route) { inclusive = true }
+}
+```
+
+## Authentication Flow
+
+The navigation handles authentication state dynamically:
+
+```kotlin
+val startDestination = if (authViewModel.isLoggedIn) {
+    Screen.Discover.route
+} else {
+    Screen.Welcome.route
+}
+```
+
+### Login Flow
+
+<Steps>
+  <Step title="Welcome Screen">
+    User sees welcome screen on first launch
+  </Step>
+  <Step title="Login/SignUp">
+    User navigates to login or signup
+  </Step>
+  <Step title="Authentication">
+    After successful auth, navigate to main app
+  </Step>
+  <Step title="Clear Auth Screens">
+    Clear welcome/login screens from back stack
+  </Step>
+</Steps>
+
+```kotlin
+LoginScreen(
+    onLoginSuccess = {
+        navController.navigate(Screen.StoryList.route) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
+)
+```
+
+### Logout Flow
+
+```kotlin
+ProfileScreen(
+    onLogout = {
+        authViewModel.signOut()
+        navController.navigate(Screen.Login.route) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
+)
+```
+
+## Story Detail Navigation
+
+Complex navigation with data loading:
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    val stories by storyViewModel.stories.collectAsState()
+    val story = stories.find { it.id == storyId }
+
+    // Load story if not in local state
+    LaunchedEffect(storyId) {
+        if (story == null) {
+            storyViewModel.loadStoryById(storyId)
+        }
+    }
+
+    val selectedStory by storyViewModel.selectedStory.collectAsState()
+    val displayStory = story ?: selectedStory
+
+    if (displayStory != null) {
+        StoryDetailScreen(
+            story = displayStory,
+            favoritesViewModel = favoritesViewModel,
+            onNavigateBack = { navController.popBackStack() },
+            onEditClick = {
+                navController.navigate(Screen.EditStory.createRoute(storyId))
+            }
+        )
+    } else {
+        StoryDetailLoadingScreen(
+            onNavigateBack = { navController.popBackStack() }
+        )
+    }
+}
+```
+
+## Bottom Navigation
+
+The app uses a bottom navigation bar for main sections:
+
+```kotlin
+val bottomNavItems = listOf(
+    BottomNavItem("Explorar", Screen.Discover.route, 
+        Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+    BottomNavItem("Leyendas", Screen.StoryList.route, 
+        Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
+    BottomNavItem("Mapa", Screen.StoryMap.route, 
+        Icons.Filled.Explore, Icons.Outlined.Explore),
+    BottomNavItem("Favoritos", Screen.Favorites.route, 
+        Icons.Filled.Favorite, Icons.Outlined.FavoriteBorder),
+    BottomNavItem("Perfil", Screen.Profile.route, 
+        Icons.Filled.Person, Icons.Outlined.Person)
+)
+```
+
+### Showing/Hiding Bottom Bar
+
+The bottom bar is only shown on main screens:
+
+```kotlin
+val showBottomBar = currentRoute in listOf(
+    Screen.Discover.route,
+    Screen.StoryList.route,
+    Screen.StoryMap.route,
+    Screen.Favorites.route,
+    Screen.Profile.route
+)
+```
+
+### Bottom Navigation Click Handler
+
+```kotlin
+NavigationBarItem(
+    icon = { Icon(item.icon, contentDescription = item.label) },
+    label = { Text(item.label) },
+    selected = isSelected,
+    onClick = {
+        navController.navigate(item.route) {
+            // Pop to start destination to avoid building up back stack
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            // Avoid multiple copies of same destination
+            launchSingleTop = true
+            // Restore state when reselecting a tab
+            restoreState = true
+        }
+    }
+)
+```
+
+## Navigation State Management
+
+### Current Destination
+
+```kotlin
+val navBackStackEntry by navController.currentBackStackEntryAsState()
+val currentRoute = navBackStackEntry?.destination?.route
+```
+
+### Is Selected Check
+
+```kotlin
+val isSelected = navBackStackEntry?.destination?.hierarchy?.any {
+    it.route == item.route
+} == true
+```
+
+## Deep Linking
+
+While not currently implemented, you can add deep links:
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    ),
+    deepLinks = listOf(
+        navDeepLink {
+            uriPattern = "casadehistorias://story/{storyId}"
+        }
+    )
+) { backStackEntry ->
+    // Screen content
+}
+```
+
+## Navigation Testing
+
+```kotlin
+class NavigationTest {
+    @Test
+    fun navigateToStoryDetail() {
+        val navController = TestNavHostController(ApplicationProvider.getApplicationContext())
+        
+        composeTestRule.setContent {
+            navController.setGraph(R.navigation.nav_graph)
+            NavGraph(navController, authViewModel, startDestination)
+        }
+        
+        // Navigate to story detail
+        composeTestRule.runOnUiThread {
+            navController.navigate(Screen.StoryDetail.createRoute("story-1"))
+        }
+        
+        // Verify current destination
+        assertThat(navController.currentBackStackEntry?.destination?.route)
+            .isEqualTo(Screen.StoryDetail.route)
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use sealed classes for routes">
+    Define all routes in a sealed class for type safety and compile-time checking.
+  </Accordion>
+  
+  <Accordion title="Clear back stack appropriately">
+    After login/logout, clear the back stack to prevent users from going back to auth screens.
+  </Accordion>
+  
+  <Accordion title="Handle configuration changes">
+    ViewModels survive configuration changes, so navigation state is preserved.
+  </Accordion>
+  
+  <Accordion title="Use navBackStackEntry for arguments">
+    Access navigation arguments from the back stack entry, not global state.
+  </Accordion>
+  
+  <Accordion title="Save and restore state">
+    Use `saveState` and `restoreState` for bottom navigation to preserve screen state.
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="UI Layer" icon="paint-brush" href="/architecture/ui-layer">
+    Learn about screens and composables
+  </Card>
+  <Card title="Dependency Injection" icon="plug" href="/architecture/dependency-injection">
+    See how ViewModels are provided
+  </Card>
+</CardGroup>

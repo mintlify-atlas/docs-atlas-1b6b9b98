@@ -1,0 +1,334 @@
+---
+title: "NavGraph"
+description: "Main navigation graph composable defining app navigation flow"
+---
+
+## Overview
+
+The `NavGraph` composable function defines the complete navigation structure for Casa de Historias. It sets up all navigation routes, their destinations, and navigation arguments.
+
+## Declaration
+
+```kotlin
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+)
+```
+
+**Package:** `com.example.casadehistorias.ui.navigation`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:49`
+
+## Parameters
+
+<ParamField path="navController" type="NavHostController" required>
+  The NavHostController instance managing navigation state and operations
+</ParamField>
+
+<ParamField path="authViewModel" type="AuthViewModel" required>
+  Shared AuthViewModel instance for authentication state across screens
+</ParamField>
+
+<ParamField path="startDestination" type="String" required>
+  The initial screen route to display (typically `Screen.Welcome.route` or `Screen.StoryList.route`)
+</ParamField>
+
+## Shared ViewModels
+
+The NavGraph creates shared ViewModel instances that can be accessed across multiple screens:
+
+```kotlin
+val storyViewModel: StoryViewModel = hiltViewModel()
+val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:54`
+
+## Route Definitions
+
+### Authentication Flow
+
+#### Welcome Screen
+
+```kotlin
+composable(Screen.Welcome.route) {
+    WelcomeScreen(
+        onContinue = {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(Screen.Welcome.route) { inclusive = true }
+            }
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:61`
+
+#### Login Screen
+
+```kotlin
+composable(Screen.Login.route) {
+    LoginScreen(
+        onLoginSuccess = {
+            navController.navigate(Screen.StoryList.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        },
+        onNavigateToSignUp = {
+            navController.navigate(Screen.SignUp.route)
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:71`
+
+#### SignUp Screen
+
+```kotlin
+composable(Screen.SignUp.route) {
+    SignUpScreen(
+        onSignUpSuccess = {
+            navController.navigate(Screen.StoryList.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        },
+        onNavigateToLogin = {
+            navController.popBackStack()
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:84`
+
+### Story Browsing
+
+#### Discover Screen
+
+```kotlin
+composable(Screen.Discover.route) {
+    DiscoverScreen(
+        viewModel = storyViewModel,
+        onStoryClick = { storyId ->
+            navController.navigate(Screen.StoryDetail.createRoute(storyId))
+        },
+        onNavigateToStoryList = {
+            navController.navigate(Screen.StoryList.route)
+        },
+        onNavigateToDictionary = {
+            navController.navigate(Screen.Dictionary.route)
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:97`
+
+#### StoryList Screen
+
+```kotlin
+composable(Screen.StoryList.route) {
+    StoryListScreen(
+        viewModel = storyViewModel,
+        onStoryClick = { storyId ->
+            navController.navigate(Screen.StoryDetail.createRoute(storyId))
+        },
+        onAddStoryClick = {
+            navController.navigate(Screen.AddStory.route)
+        },
+        onSearchClick = {
+            navController.navigate(Screen.Search.route)
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:118`
+
+### Story Detail (Parameterized)
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    val stories by storyViewModel.stories.collectAsState()
+    val story = stories.find { it.id == storyId }
+
+    LaunchedEffect(storyId) {
+        if (story == null) {
+            storyViewModel.loadStoryById(storyId)
+        }
+    }
+
+    val selectedStory by storyViewModel.selectedStory.collectAsState()
+    val displayStory = story ?: selectedStory
+
+    if (displayStory != null) {
+        StoryDetailScreen(
+            story = displayStory,
+            favoritesViewModel = favoritesViewModel,
+            onNavigateBack = { navController.popBackStack() },
+            onEditClick = {
+                navController.navigate(Screen.EditStory.createRoute(storyId))
+            }
+        )
+    } else {
+        StoryDetailLoadingScreen(
+            onNavigateBack = { navController.popBackStack() }
+        )
+    }
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:187`
+
+**Key Features:**
+- Accepts `storyId` as a String navigation argument
+- Tries to find story in local list first for instant display
+- Falls back to loading from Firestore if not in local list
+- Shows loading screen while fetching
+- Passes shared `favoritesViewModel` for favorite functionality
+
+### Search and Favorites
+
+#### Search Screen
+
+```kotlin
+composable(Screen.Search.route) {
+    SearchScreen(
+        onStoryClick = { storyId ->
+            navController.navigate(Screen.StoryDetail.createRoute(storyId))
+        },
+        onNavigateBack = { navController.popBackStack() }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:172`
+
+#### Favorites Screen
+
+```kotlin
+composable(Screen.Favorites.route) {
+    FavoritesScreen(
+        viewModel = favoritesViewModel,
+        onStoryClick = { storyId ->
+            navController.navigate(Screen.StoryDetail.createRoute(storyId))
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:148`
+
+### Profile and Settings
+
+#### Profile Screen
+
+```kotlin
+composable(Screen.Profile.route) {
+    ProfileScreen(
+        authViewModel = authViewModel,
+        onNavigateToSettings = {
+            navController.navigate(Screen.Settings.route)
+        },
+        onLogout = {
+            authViewModel.signOut()
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    )
+}
+```
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:157`
+
+**Note:** Logout clears the entire back stack to prevent returning to authenticated screens.
+
+## Usage Example
+
+```kotlin
+@Composable
+fun MainActivity() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+    
+    // Determine start destination based on auth state
+    val startDestination = if (authViewModel.isLoggedIn) {
+        Screen.StoryList.route
+    } else {
+        Screen.Welcome.route
+    }
+    
+    NavGraph(
+        navController = navController,
+        authViewModel = authViewModel,
+        startDestination = startDestination
+    )
+}
+```
+
+## Navigation Patterns
+
+### Clear Back Stack Pattern
+
+Used after successful login/signup to prevent back navigation to auth screens:
+
+```kotlin
+navController.navigate(Screen.StoryList.route) {
+    popUpTo(0) { inclusive = true }
+}
+```
+
+### Replace Current Screen Pattern
+
+Used when transitioning from welcome to login:
+
+```kotlin
+navController.navigate(Screen.Login.route) {
+    popUpTo(Screen.Welcome.route) { inclusive = true }
+}
+```
+
+### Simple Forward Navigation
+
+Used for most screen transitions:
+
+```kotlin
+navController.navigate(Screen.Search.route)
+navController.navigate(Screen.StoryDetail.createRoute(storyId))
+```
+
+### Back Navigation
+
+Used to return to previous screen:
+
+```kotlin
+navController.popBackStack()
+```
+
+## ViewModel Sharing
+
+Certain ViewModels are created at the NavGraph level and shared across screens:
+
+- `storyViewModel` - Shared between Discover, StoryList, StoryMap, and StoryDetail
+- `favoritesViewModel` - Shared between Favorites and StoryDetail
+- `authViewModel` - Passed as parameter, shared across all auth-related screens
+
+This ensures consistent state across navigation and avoids redundant data loading.
+
+## Related
+
+- [Screen Routes](/api/navigation/screens) - Screen route definitions
+- [AuthViewModel](/api/viewmodels/auth-viewmodel) - Authentication ViewModel
+- [StoryViewModel](/api/viewmodels/story-viewmodel) - Story list ViewModel
+- [FavoritesViewModel](/api/viewmodels/favorites-viewmodel) - Favorites ViewModel

@@ -1,0 +1,257 @@
+---
+title: "StoryRepository"
+description: "Repository for managing story data operations"
+---
+
+## Overview
+
+The `StoryRepository` class provides a clean interface for accessing and managing story data. It coordinates between `FirestoreRepository` and `AuthRepository`, handling data transformation between Firebase models and domain models.
+
+## Declaration
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+)
+```
+
+**Package:** `com.example.casadehistorias.data.repository`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:13`
+
+## Annotations
+
+- `@Singleton` - Ensures only one instance exists throughout the app lifecycle
+- `@Inject` - Enables dependency injection via Hilt
+
+## Methods
+
+### getAllStoriesFlow
+
+```kotlin
+fun getAllStoriesFlow(): Flow<List<Story>>
+```
+
+Returns a Flow that emits updated story lists whenever the Firestore data changes.
+
+**Returns:** `Flow<List<Story>>` - Reactive stream of all published stories, ordered by creation date (descending)
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:18`
+
+### getAllStories
+
+```kotlin
+suspend fun getAllStories(): List<Story>
+```
+
+Fetches all published stories as a one-time snapshot.
+
+**Returns:** `List<Story>` - List of all published stories
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:23`
+
+### getStoryById
+
+```kotlin
+suspend fun getStoryById(id: String): Story?
+```
+
+Retrieves a specific story by its ID.
+
+<ParamField path="id" type="String" required>
+  The unique identifier of the story to retrieve
+</ParamField>
+
+**Returns:** `Story?` - The story if found, null otherwise
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:27`
+
+### getStoriesByCommunity
+
+```kotlin
+suspend fun getStoriesByCommunity(community: String): List<Story>
+```
+
+Fetches all published stories from a specific community.
+
+<ParamField path="community" type="String" required>
+  The name of the community to filter by
+</ParamField>
+
+**Returns:** `List<Story>` - List of stories from the specified community
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:31`
+
+### getStoriesByAuthor
+
+```kotlin
+suspend fun getStoriesByAuthor(authorId: String): List<Story>
+```
+
+Fetches all stories created by a specific author (includes unpublished stories).
+
+<ParamField path="authorId" type="String" required>
+  The Firebase user ID of the author
+</ParamField>
+
+**Returns:** `List<Story>` - List of stories by the specified author
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:35`
+
+### getMyStories
+
+```kotlin
+suspend fun getMyStories(): List<Story>
+```
+
+Fetches all stories created by the currently authenticated user.
+
+**Returns:** `List<Story>` - List of stories by current user, or empty list if not authenticated
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:39`
+
+### getStoriesByIds
+
+```kotlin
+suspend fun getStoriesByIds(ids: List<String>): List<Story>
+```
+
+Fetches multiple stories by their IDs (used for favorites).
+
+<ParamField path="ids" type="List<String>" required>
+  List of story IDs to retrieve
+</ParamField>
+
+**Returns:** `List<Story>` - List of found stories (may be fewer than requested if some IDs are invalid)
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:44`
+
+### searchStories
+
+```kotlin
+suspend fun searchStories(query: String): List<Story>
+```
+
+Searches stories by query string across multiple fields.
+
+<ParamField path="query" type="String" required>
+  Search query to match against titles, narrator, community, and tags
+</ParamField>
+
+**Returns:** `List<Story>` - List of stories matching the search query
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:48`
+
+### addStory
+
+```kotlin
+suspend fun addStory(story: Story): String?
+```
+
+Creates a new story in Firestore.
+
+<ParamField path="story" type="Story" required>
+  The story to create (id will be auto-generated)
+</ParamField>
+
+**Returns:** `String?` - The generated story ID if successful, null if user not authenticated or operation failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:52`
+
+### updateStory
+
+```kotlin
+suspend fun updateStory(story: Story): Boolean
+```
+
+Updates an existing story in Firestore.
+
+<ParamField path="story" type="Story" required>
+  The story with updated data (must include existing id)
+</ParamField>
+
+**Returns:** `Boolean` - true if update successful, false if user not authenticated or operation failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:60`
+
+### deleteStory
+
+```kotlin
+suspend fun deleteStory(storyId: String): Boolean
+```
+
+Deletes a story from Firestore.
+
+<ParamField path="storyId" type="String" required>
+  The ID of the story to delete
+</ParamField>
+
+**Returns:** `Boolean` - true if deletion successful, false otherwise
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:68`
+
+### addToFavorites
+
+```kotlin
+suspend fun addToFavorites(storyId: String): Boolean
+```
+
+Adds a story to the current user's favorites list.
+
+<ParamField path="storyId" type="String" required>
+  The ID of the story to favorite
+</ParamField>
+
+**Returns:** `Boolean` - true if successful, false if user not authenticated or operation failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:72`
+
+### removeFromFavorites
+
+```kotlin
+suspend fun removeFromFavorites(storyId: String): Boolean
+```
+
+Removes a story from the current user's favorites list.
+
+<ParamField path="storyId" type="String" required>
+  The ID of the story to unfavorite
+</ParamField>
+
+**Returns:** `Boolean` - true if successful, false if user not authenticated or operation failed
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/data/repository/StoryRepository.kt:79`
+
+## Usage Example
+
+```kotlin
+class MyViewModel @Inject constructor(
+    private val storyRepository: StoryRepository
+) : ViewModel() {
+
+    fun loadStories() {
+        viewModelScope.launch {
+            // Get all stories as Flow
+            storyRepository.getAllStoriesFlow()
+                .collect { stories ->
+                    // Update UI
+                }
+        }
+    }
+    
+    fun searchStories(query: String) {
+        viewModelScope.launch {
+            val results = storyRepository.searchStories(query)
+            // Handle results
+        }
+    }
+}
+```
+
+## Related
+
+- [Story](/api/models/story) - Domain model for stories
+- [FirestoreRepository](/api/repositories/firestore-repository) - Underlying Firestore operations
+- [StoryViewModel](/api/viewmodels/story-viewmodel) - ViewModel using this repository

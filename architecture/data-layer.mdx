@@ -1,0 +1,357 @@
+---
+title: Data Layer
+description: Learn about the data layer architecture including repositories, Firebase, and Room
+icon: database
+---
+
+The data layer manages all data operations in Casa de Historias, providing a clean abstraction over Firebase and Room database.
+
+## Architecture Overview
+
+The data layer consists of:
+
+- **Repositories**: High-level APIs for data operations
+- **Firebase Repositories**: Direct interaction with Firebase services
+- **Room Database**: Local caching for offline support
+- **Domain Models**: Business entities used throughout the app
+
+## Repository Pattern
+
+### StoryRepository
+
+The main repository for story-related operations:
+
+```kotlin StoryRepository.kt
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    fun getAllStoriesFlow(): Flow<List<Story>> =
+        firestoreRepository.getAllStoriesFlow().map { stories ->
+            stories.map { it.toDomainModel() }
+        }
+
+    suspend fun getStoryById(id: String): Story? {
+        return firestoreRepository.getStoryById(id)?.toDomainModel()
+    }
+
+    suspend fun addStory(story: Story): String? {
+        val currentUser = authRepository.currentUser
+        return if (currentUser != null) {
+            val storyFirestore = story.toFirestoreModel(currentUser.uid)
+            firestoreRepository.addStory(storyFirestore)
+        } else null
+    }
+}
+```
+
+<Note>
+The repository combines data from multiple sources and converts between Firestore models and domain models.
+</Note>
+
+### Key Features
+
+- **Reactive Updates**: Uses `Flow` for real-time data updates
+- **Model Conversion**: Converts between Firebase and domain models
+- **Auth Integration**: Automatically includes user context
+- **Error Handling**: Graceful fallbacks for network issues
+
+## Firebase Integration
+
+### FirestoreRepository
+
+Handles all Firestore database operations:
+
+```kotlin FirestoreRepository.kt
+@Singleton
+class FirestoreRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    fun getAllStoriesFlow(): Flow<List<StoryFirestore>> = callbackFlow {
+        val listener = firestore.collection("stories")
+            .whereEqualTo("published", true)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val stories = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(StoryFirestore::class.java)
+                } ?: emptyList()
+                trySend(stories)
+            }
+        awaitClose { listener.remove() }
+    }
+}
+```
+
+**Features:**
+
+- Real-time listeners with `callbackFlow`
+- Query filtering and ordering
+- Batch operations for large datasets
+- Full-text search implementation
+
+### AuthRepository
+
+Manages user authentication and profiles:
+
+```kotlin AuthRepository.kt
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) {
+    val currentUser: FirebaseUser? get() = auth.currentUser
+
+    val authState: Flow<FirebaseUser?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            trySend(auth.currentUser)
+        }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
+
+    suspend fun signInWithEmailAndPassword(
+        email: String, 
+        password: String
+    ): Result<FirebaseUser?> {
+        return try {
+            val result = auth.signInWithEmailAndPassword(email, password).await()
+            updateLastLogin(result.user?.uid)
+            Result.success(result.user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+```
+
+### StorageRepository
+
+Handles file uploads to Firebase Storage:
+
+```kotlin StorageRepository.kt
+@Singleton
+class StorageRepository @Inject constructor(
+    private val storage: FirebaseStorage
+) {
+    suspend fun uploadImage(uri: Uri, storyId: String): String? {
+        return try {
+            val ref = storage.reference.child("stories/$storyId/cover.jpg")
+            ref.putFile(uri).await()
+            ref.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun uploadAudio(uri: Uri, storyId: String): String? {
+        return try {
+            val ref = storage.reference.child("stories/$storyId/audio.mp3")
+            ref.putFile(uri).await()
+            ref.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+```
+
+## Room Database
+
+### Database Configuration
+
+```kotlin AppDatabase.kt
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+### Data Access Object (DAO)
+
+```kotlin StoryDao.kt
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories")
+    fun getAllStories(): Flow<List<StoryEntity>>
+
+    @Query("SELECT * FROM stories WHERE id = :id")
+    suspend fun getStoryById(id: String): StoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStories(stories: List<StoryEntity>)
+
+    @Delete
+    suspend fun deleteStory(story: StoryEntity)
+}
+```
+
+### Entity Definition
+
+```kotlin StoryEntity.kt
+@Entity(tableName = "stories")
+data class StoryEntity(
+    @PrimaryKey val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioPath: String?,
+    val imagePath: String?,
+    val narratorName: String,
+    val community: String,
+    val isFavorite: Boolean = false
+)
+```
+
+<Info>
+Room provides type-safe database access and automatic query validation at compile time.
+</Info>
+
+## Domain Models
+
+### Story Model
+
+The main domain model representing a story:
+
+```kotlin Story.kt
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+### Firestore Model
+
+Optimized for Firestore storage:
+
+```kotlin StoryFirestore.kt
+data class StoryFirestore(
+    @DocumentId
+    val id: String = "",
+    val titleEs: String = "",
+    val titleNahuatl: String = "",
+    val contentEs: String = "",
+    val contentNahuatl: String = "",
+    val audioUrl: String? = null,
+    val imageUrl: String? = null,
+    val narratorName: String = "",
+    val community: String = "",
+    val createdAt: Timestamp = Timestamp.now(),
+    val updatedAt: Timestamp = Timestamp.now(),
+    val published: Boolean = true,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+```
+
+## Model Conversion
+
+Extension functions handle conversion between models:
+
+```kotlin
+private fun StoryFirestore.toDomainModel(): Story {
+    return Story(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        authorId = this.authorId,
+        tags = this.tags,
+        createdAt = this.createdAt.seconds * 1000
+    )
+}
+```
+
+## Data Operations
+
+### Reading Data
+
+```kotlin
+// Reactive flow for real-time updates
+val stories: Flow<List<Story>> = repository.getAllStoriesFlow()
+
+// One-time fetch
+val story = repository.getStoryById("story-id")
+```
+
+### Writing Data
+
+```kotlin
+// Add new story
+val storyId = repository.addStory(newStory)
+
+// Update existing story
+val success = repository.updateStory(updatedStory)
+
+// Delete story
+val deleted = repository.deleteStory(storyId)
+```
+
+### Search Operations
+
+```kotlin
+val results = repository.searchStories("xochitl")
+val byCommunity = repository.getStoriesByCommunity("Cuetzalan")
+val myStories = repository.getMyStories()
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Flow for reactive data">
+    Always use `Flow` for data that can change over time. This ensures UI stays synchronized with the database.
+  </Accordion>
+  
+  <Accordion title="Handle errors gracefully">
+    Wrap Firebase operations in try-catch blocks and return `Result` types or nullable values.
+  </Accordion>
+  
+  <Accordion title="Convert models at repository level">
+    Keep domain models separate from data source models. Convert at the repository boundary.
+  </Accordion>
+  
+  <Accordion title="Cache data locally">
+    Use Room for offline support and faster initial loads.
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="UI Layer" icon="paint-brush" href="/architecture/ui-layer">
+    Learn how ViewModels consume repositories
+  </Card>
+  <Card title="Dependency Injection" icon="plug" href="/architecture/dependency-injection">
+    See how repositories are provided
+  </Card>
+</CardGroup>

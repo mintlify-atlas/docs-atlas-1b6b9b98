@@ -1,0 +1,192 @@
+---
+title: "StoryViewModel"
+description: "ViewModel for managing story list and story detail UI state"
+---
+
+## Overview
+
+The `StoryViewModel` class manages UI state for story lists and individual story details. It provides reactive state flows for stories, loading states, and error handling.
+
+## Declaration
+
+```kotlin
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel()
+```
+
+**Package:** `com.example.casadehistorias.ui.story`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:17`
+
+## Annotations
+
+- `@HiltViewModel` - Enables Hilt dependency injection for ViewModel
+- `@Inject` - Constructor injection annotation
+
+## State Properties
+
+### stories
+
+```kotlin
+val stories: StateFlow<List<Story>>
+```
+
+StateFlow containing the list of all stories. Automatically updates when Firestore data changes.
+
+**Type:** `StateFlow<List<Story>>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:22`
+
+### isLoading
+
+```kotlin
+val isLoading: StateFlow<Boolean>
+```
+
+StateFlow indicating whether stories are currently being loaded.
+
+**Type:** `StateFlow<Boolean>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:25`
+
+### errorMessage
+
+```kotlin
+val errorMessage: StateFlow<String?>
+```
+
+StateFlow containing error message if story loading failed, null otherwise.
+
+**Type:** `StateFlow<String?>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:28`
+
+### selectedStory
+
+```kotlin
+val selectedStory: StateFlow<Story?>
+```
+
+StateFlow containing the currently selected story for detail view.
+
+**Type:** `StateFlow<Story?>`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:31`
+
+## Methods
+
+### retry
+
+```kotlin
+fun retry()
+```
+
+Retries loading stories after an error.
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:54`
+
+### loadStoryById
+
+```kotlin
+fun loadStoryById(id: String)
+```
+
+Loads a specific story by ID. First checks local list, then fetches from Firestore if not found.
+
+<ParamField path="id" type="String" required>
+  The unique identifier of the story to load
+</ParamField>
+
+**Side effects:**
+- Sets `isLoading` to true during fetch
+- Updates `selectedStory` with the loaded story
+- Sets `isLoading` to false when complete
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:58`
+
+### getStoryById
+
+```kotlin
+fun getStoryById(id: String): Story?
+```
+
+Synchronously retrieves a story from the local list by ID.
+
+<ParamField path="id" type="String" required>
+  The unique identifier of the story
+</ParamField>
+
+**Returns:** `Story?` - The story if found in local list, null otherwise
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:75`
+
+### deleteStory
+
+```kotlin
+fun deleteStory(storyId: String)
+```
+
+Deletes a story from the repository.
+
+<ParamField path="storyId" type="String" required>
+  The unique identifier of the story to delete
+</ParamField>
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/story/StoryViewModel.kt:79`
+
+## Initialization
+
+The ViewModel automatically starts loading stories when created:
+
+```kotlin
+init {
+    loadStories()
+}
+```
+
+## Usage Example
+
+```kotlin
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel = hiltViewModel()
+) {
+    val stories by viewModel.stories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    when {
+        isLoading -> LoadingIndicator()
+        errorMessage != null -> ErrorView(
+            message = errorMessage,
+            onRetry = { viewModel.retry() }
+        )
+        else -> LazyColumn {
+            items(stories) { story ->
+                StoryCard(story = story)
+            }
+        }
+    }
+}
+```
+
+## Error Handling
+
+Errors during story loading are caught and exposed through the `errorMessage` StateFlow. The error includes the exception message from the repository.
+
+```kotlin
+repository.getAllStoriesFlow()
+    .catch { e ->
+        Log.e("StoryViewModel", "Error cargando historias: ${e.message}")
+        _errorMessage.value = "Error al cargar historias: ${e.message}"
+        _isLoading.value = false
+    }
+```
+
+## Related
+
+- [StoryRepository](/api/repositories/story-repository) - Repository for story data
+- [Story](/api/models/story) - Story domain model
+- [AddStoryViewModel](/api/viewmodels/add-story-viewmodel) - ViewModel for creating stories

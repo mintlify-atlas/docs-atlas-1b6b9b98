@@ -1,0 +1,124 @@
+---
+title: Introduction
+description: Welcome to Casa de Historias - A mobile app for preserving indigenous legends from Sierra de Zongolica
+---
+
+## What is Casa de Historias?
+
+Casa de Historias (House of Stories) is an Android mobile application dedicated to preserving and celebrating the rich oral traditions of indigenous communities in the Sierra de Zongolica region of Mexico. The app provides a digital platform for recording, sharing, and discovering legends in both Spanish and Nahuatl languages.
+
+<Note>
+This app serves as a cultural bridge, helping preserve indigenous stories for future generations while making them accessible to a wider audience.
+</Note>
+
+## Why Casa de Historias?
+
+The indigenous communities of Sierra de Zongolica have a wealth of oral traditions that risk being lost over time. Casa de Historias addresses this by:
+
+<CardGroup cols={2}>
+  <Card title="Bilingual Support" icon="language">
+    All stories are available in both Spanish and Nahuatl, preserving the original language while ensuring accessibility.
+  </Card>
+  
+  <Card title="Audio Preservation" icon="microphone">
+    Record and store original audio narrations from community storytellers, capturing authentic voices and pronunciation.
+  </Card>
+  
+  <Card title="Geographic Context" icon="map">
+    Link stories to specific locations using MapLibre integration, connecting legends to the physical places they originated.
+  </Card>
+  
+  <Card title="Community Driven" icon="users">
+    Community members can contribute their own stories, creating a living archive of cultural heritage.
+  </Card>
+</CardGroup>
+
+## Key Concepts
+
+### Stories (Leyendas)
+
+At the heart of the app are the stories themselves. Each story in Casa de Historias includes:
+
+- **Bilingual titles and content** - Spanish and Nahuatl versions
+- **Narrator information** - Who told the story
+- **Community attribution** - Which village or area the story comes from
+- **Optional audio** - Original recordings in the narrator's voice
+- **Optional images** - Visual elements to enhance the story
+- **Geographic coordinates** - Where the story takes place or originated
+
+```kotlin Story.kt:3
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+### User Experience
+
+The app provides multiple ways to discover and interact with stories:
+
+**Explorar (Discover)** - Browse curated collections, newest stories, and stories with audio
+
+**Leyendas (Story List)** - View all available stories in a comprehensive list
+
+**Mapa (Story Map)** - Explore stories geographically using an interactive map
+
+**Favoritos (Favorites)** - Save and revisit your favorite stories
+
+**Perfil (Profile)** - Manage your contributions and account settings
+
+### Data Storage
+
+Casa de Historias uses a hybrid data storage approach:
+
+<CardGroup cols={2}>
+  <Card title="Firebase Cloud Storage" icon="cloud">
+    Stories, images, and audio files are stored in Firebase Firestore and Storage for cloud sync and backup.
+  </Card>
+  
+  <Card title="Room Local Database" icon="database">
+    Local caching with Room database ensures stories are available offline.
+  </Card>
+</CardGroup>
+
+## Who Should Use This App?
+
+<CardGroup cols={3}>
+  <Card title="Community Members" icon="home">
+    Share your stories and preserve your cultural heritage
+  </Card>
+  
+  <Card title="Researchers" icon="book">
+    Study and document indigenous oral traditions
+  </Card>
+  
+  <Card title="Language Learners" icon="graduation-cap">
+    Learn Nahuatl through authentic cultural content
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+Ready to get started? Continue to the next sections:
+
+<CardGroup cols={2}>
+  <Card title="Features Overview" icon="star" href="/features">
+    Explore all the features Casa de Historias has to offer
+  </Card>
+  
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Set up the development environment and run the app
+  </Card>
+</CardGroup>

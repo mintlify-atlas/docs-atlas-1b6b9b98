@@ -1,0 +1,287 @@
+---
+title: "Screen Routes"
+description: "Navigation screen definitions and route constants"
+---
+
+## Overview
+
+The `Screen` sealed class defines all navigation routes in the Casa de Historias app. Each screen has a constant route string used for navigation, with some screens supporting parameterized routes.
+
+## Declaration
+
+```kotlin
+sealed class Screen(val route: String)
+```
+
+**Package:** `com.example.casadehistorias.ui.navigation`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:27`
+
+## Screen Definitions
+
+### Welcome
+
+```kotlin
+object Welcome : Screen("welcome")
+```
+
+Welcome/onboarding screen shown to new users.
+
+**Route:** `welcome`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:28`
+
+### Discover
+
+```kotlin
+object Discover : Screen("discover")
+```
+
+Main discovery screen for browsing stories.
+
+**Route:** `discover`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:29`
+
+### Dictionary
+
+```kotlin
+object Dictionary : Screen("dictionary")
+```
+
+Nahuatl-Spanish dictionary screen.
+
+**Route:** `dictionary`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:30`
+
+### Login
+
+```kotlin
+object Login : Screen("login")
+```
+
+User login screen.
+
+**Route:** `login`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:31`
+
+### SignUp
+
+```kotlin
+object SignUp : Screen("signup")
+```
+
+User registration screen.
+
+**Route:** `signup`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:32`
+
+### StoryList
+
+```kotlin
+object StoryList : Screen("story_list")
+```
+
+List view of all stories.
+
+**Route:** `story_list`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:33`
+
+### AddStory
+
+```kotlin
+object AddStory : Screen("add_story")
+```
+
+Form screen for creating a new story.
+
+**Route:** `add_story`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:34`
+
+### StoryMap
+
+```kotlin
+object StoryMap : Screen("story_map")
+```
+
+Map view showing stories at their geographic locations.
+
+**Route:** `story_map`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:35`
+
+### Favorites
+
+```kotlin
+object Favorites : Screen("favorites")
+```
+
+List of user's favorited stories.
+
+**Route:** `favorites`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:36`
+
+### Profile
+
+```kotlin
+object Profile : Screen("profile")
+```
+
+User profile screen.
+
+**Route:** `profile`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:37`
+
+### Search
+
+```kotlin
+object Search : Screen("search")
+```
+
+Story search screen.
+
+**Route:** `search`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:38`
+
+### Settings
+
+```kotlin
+object Settings : Screen("settings")
+```
+
+App settings screen.
+
+**Route:** `settings`
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:39`
+
+## Parameterized Screens
+
+These screens accept route parameters:
+
+### StoryDetail
+
+```kotlin
+object StoryDetail : Screen("story_detail/{storyId}") {
+    fun createRoute(storyId: String) = "story_detail/$storyId"
+}
+```
+
+Story detail view screen.
+
+**Route Pattern:** `story_detail/{storyId}`
+
+**Parameter:** `storyId` (String) - The unique identifier of the story to display
+
+**Helper Method:**
+- `createRoute(storyId: String): String` - Creates a route with the story ID filled in
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:40`
+
+**Usage Example:**
+```kotlin
+navController.navigate(Screen.StoryDetail.createRoute("story123"))
+// Results in: "story_detail/story123"
+```
+
+### EditStory
+
+```kotlin
+object EditStory : Screen("edit_story/{storyId}") {
+    fun createRoute(storyId: String) = "edit_story/$storyId"
+}
+```
+
+Story editing screen.
+
+**Route Pattern:** `edit_story/{storyId}`
+
+**Parameter:** `storyId` (String) - The unique identifier of the story to edit
+
+**Helper Method:**
+- `createRoute(storyId: String): String` - Creates a route with the story ID filled in
+
+**Source:** `~/workspace/source/app/src/main/java/com/example/casadehistorias/ui/navigation/NavGraph.kt:43`
+
+**Usage Example:**
+```kotlin
+navController.navigate(Screen.EditStory.createRoute("story123"))
+// Results in: "edit_story/story123"
+```
+
+## Navigation Examples
+
+### Simple Navigation
+
+```kotlin
+// Navigate to a simple screen
+navController.navigate(Screen.Login.route)
+navController.navigate(Screen.Favorites.route)
+navController.navigate(Screen.Search.route)
+```
+
+### Parameterized Navigation
+
+```kotlin
+// Navigate to story detail
+val storyId = "abc123"
+navController.navigate(Screen.StoryDetail.createRoute(storyId))
+
+// Navigate to edit story
+navController.navigate(Screen.EditStory.createRoute(storyId))
+```
+
+### Navigation with Pop Behavior
+
+```kotlin
+// Replace the entire back stack (e.g., after login)
+navController.navigate(Screen.StoryList.route) {
+    popUpTo(0) { inclusive = true }
+}
+
+// Pop up to a specific screen
+navController.navigate(Screen.Login.route) {
+    popUpTo(Screen.Welcome.route) { inclusive = true }
+}
+```
+
+### Back Navigation
+
+```kotlin
+// Simple back navigation
+navController.popBackStack()
+
+// Navigate back to specific screen
+navController.popBackStack(Screen.StoryList.route, inclusive = false)
+```
+
+## Complete Screen List
+
+| Screen | Route | Parameterized | Purpose |
+|--------|-------|---------------|----------|
+| Welcome | `welcome` | No | Onboarding screen |
+| Discover | `discover` | No | Browse stories |
+| Dictionary | `dictionary` | No | Language dictionary |
+| Login | `login` | No | User authentication |
+| SignUp | `signup` | No | User registration |
+| StoryList | `story_list` | No | All stories list |
+| AddStory | `add_story` | No | Create new story |
+| StoryMap | `story_map` | No | Geographic story view |
+| Favorites | `favorites` | No | Favorited stories |
+| Profile | `profile` | No | User profile |
+| Search | `search` | No | Search stories |
+| Settings | `settings` | No | App settings |
+| StoryDetail | `story_detail/{storyId}` | Yes | View story details |
+| EditStory | `edit_story/{storyId}` | Yes | Edit existing story |
+
+## Related
+
+- [NavGraph](/api/navigation/nav-graph) - Navigation graph implementation

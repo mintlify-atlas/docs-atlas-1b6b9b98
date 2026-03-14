@@ -1,0 +1,491 @@
+---
+title: 'Building the App'
+description: 'Build and compile Casa de Historias for different environments'
+icon: 'hammer'
+---
+
+This guide covers how to build Casa de Historias for development, testing, and production deployment.
+
+## Build Types
+
+Casa de Historias supports two build types configured in `app/build.gradle.kts:24-32`:
+
+<CardGroup cols={2}>
+  <Card title="Debug Build" icon="bug">
+    **Purpose**: Development and testing
+    
+    - Faster build times
+    - Includes debug symbols
+    - No code obfuscation
+    - Connects to development Firebase
+  </Card>
+  
+  <Card title="Release Build" icon="rocket">
+    **Purpose**: Production deployment
+    
+    - Optimized and minified
+    - ProGuard enabled
+    - Smaller APK size
+    - Ready for Play Store
+  </Card>
+</CardGroup>
+
+## Build Configuration
+
+### Application Configuration
+
+From `app/build.gradle.kts:14-19`:
+
+```kotlin
+defaultConfig {
+    applicationId = "com.example.casadehistorias"
+    minSdk = 26
+    targetSdk = 35
+    versionCode = 1
+    versionName = "1.0"
+
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+}
+```
+
+<Note>
+  The `applicationId` uniquely identifies your app on the Play Store and on devices. Change this if you're forking the project.
+</Note>
+
+### Compilation Settings
+
+The project uses Java 17 as specified in `app/build.gradle.kts:33-39`:
+
+```kotlin
+compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+kotlinOptions {
+    jvmTarget = "17"
+}
+```
+
+### Release Build Configuration
+
+Release builds include ProGuard optimization from `app/build.gradle.kts:25-31`:
+
+```kotlin
+release {
+    isMinifyEnabled = true
+    proguardFiles(
+        getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+    )
+}
+```
+
+## Building with Gradle
+
+### Command Line Builds
+
+<Steps>
+  <Step title="Debug Build">
+    Build a debug APK for development:
+    
+    ```bash
+    ./gradlew assembleDebug
+    ```
+    
+    The APK will be generated at:
+    ```plaintext
+    app/build/outputs/apk/debug/app-debug.apk
+    ```
+  </Step>
+  
+  <Step title="Release Build">
+    Build a release APK (requires signing configuration):
+    
+    ```bash
+    ./gradlew assembleRelease
+    ```
+    
+    The APK will be generated at:
+    ```plaintext
+    app/build/outputs/apk/release/app-release.apk
+    ```
+    
+    <Warning>
+      Release builds require proper signing configuration. See [App Signing](#app-signing) below.
+    </Warning>
+  </Step>
+  
+  <Step title="Build All Variants">
+    Build both debug and release versions:
+    
+    ```bash
+    ./gradlew build
+    ```
+    
+    This also runs unit tests and lint checks.
+  </Step>
+</Steps>
+
+### Android Studio Builds
+
+<Steps>
+  <Step title="Select Build Variant">
+    1. Open the **Build Variants** panel (usually on the left sidebar)
+    2. Select either **debug** or **release** from the dropdown
+  </Step>
+  
+  <Step title="Build the Project">
+    Choose one of these options:
+    
+    - **Build** → **Make Project** (Ctrl+F9 / Cmd+F9)
+    - **Build** → **Rebuild Project** (full clean build)
+    - **Build** → **Build Bundle(s) / APK(s)** → **Build APK(s)**
+  </Step>
+  
+  <Step title="Locate the Output">
+    After a successful build, click the notification to locate the APK, or navigate to:
+    
+    ```plaintext
+    app/build/outputs/apk/{variant}/
+    ```
+  </Step>
+</Steps>
+
+## Running the App
+
+### Run on Emulator
+
+<Steps>
+  <Step title="Create an AVD">
+    If you don't have an Android Virtual Device:
+    
+    1. Click **Tools** → **Device Manager**
+    2. Click **Create Device**
+    3. Select a device definition (e.g., Pixel 6)
+    4. Choose a system image (API 26 or higher)
+    5. Finish setup
+  </Step>
+  
+  <Step title="Launch the App">
+    1. Select your AVD from the device dropdown
+    2. Click the **Run** button (green triangle)
+    3. Or use the keyboard shortcut: Shift+F10 (Windows/Linux) or Ctrl+R (Mac)
+  </Step>
+</Steps>
+
+### Run on Physical Device
+
+<Steps>
+  <Step title="Enable Developer Options">
+    On your Android device:
+    
+    1. Go to **Settings** → **About phone**
+    2. Tap **Build number** 7 times
+    3. Return to **Settings** → **System** → **Developer options**
+    4. Enable **USB debugging**
+  </Step>
+  
+  <Step title="Connect Device">
+    1. Connect your device via USB
+    2. Accept the USB debugging prompt on your device
+    3. Verify connection with:
+    
+    ```bash
+    adb devices
+    ```
+  </Step>
+  
+  <Step title="Run the App">
+    1. Select your device from the device dropdown in Android Studio
+    2. Click **Run**
+    3. The app will install and launch automatically
+  </Step>
+</Steps>
+
+## Build Optimization
+
+### Gradle Properties
+
+Optimize build performance with settings from `gradle.properties:9`:
+
+```properties
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+ksp.incremental=true
+ksp.incremental.log=true
+```
+
+<Tip>
+  Increase heap size to `-Xmx4096m` if you have 16GB+ RAM for faster builds.
+</Tip>
+
+### Build Cache
+
+Enable Gradle build cache for faster incremental builds:
+
+```bash
+./gradlew build --build-cache
+```
+
+### Parallel Builds
+
+Enable parallel execution by adding to `gradle.properties`:
+
+```properties
+org.gradle.parallel=true
+org.gradle.caching=true
+```
+
+## App Signing
+
+### Debug Signing
+
+Debug builds are automatically signed with the Android debug keystore. No configuration needed.
+
+### Release Signing
+
+<Warning>
+  Never commit your release keystore or credentials to version control!
+</Warning>
+
+<Steps>
+  <Step title="Generate a Keystore">
+    Create a release keystore:
+    
+    ```bash
+    keytool -genkey -v -keystore casa-release-key.jks \
+      -keyalg RSA -keysize 2048 -validity 10000 \
+      -alias casa-historias
+    ```
+    
+    Save this file in a secure location **outside** your project directory.
+  </Step>
+  
+  <Step title="Create keystore.properties">
+    Create a `keystore.properties` file in your project root (add to `.gitignore`):
+    
+    ```properties
+    storePassword=YOUR_KEYSTORE_PASSWORD
+    keyPassword=YOUR_KEY_PASSWORD
+    keyAlias=casa-historias
+    storeFile=/path/to/casa-release-key.jks
+    ```
+  </Step>
+  
+  <Step title="Configure build.gradle.kts">
+    Add signing configuration to `app/build.gradle.kts`:
+    
+    ```kotlin
+    // Load keystore properties
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+    
+    android {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+        
+        buildTypes {
+            release {
+                signingConfig = signingConfigs.getByName("release")
+                // ... other release config
+            }
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Build Variants and Product Flavors
+
+Currently, the app uses default build types (debug/release). You can add product flavors for different environments:
+
+```kotlin
+android {
+    flavorDimensions += "environment"
+    
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+        }
+        
+        create("prod") {
+            dimension = "environment"
+        }
+    }
+}
+```
+
+This creates variants like `devDebug`, `devRelease`, `prodDebug`, `prodRelease`.
+
+## Gradle Tasks
+
+Useful Gradle tasks for development:
+
+<CodeGroup>
+```bash Clean
+# Remove all build outputs
+./gradlew clean
+```
+
+```bash Build
+# Build all variants
+./gradlew build
+```
+
+```bash Test
+# Run unit tests
+./gradlew test
+
+# Run instrumented tests
+./gradlew connectedAndroidTest
+```
+
+```bash Lint
+# Run lint checks
+./gradlew lint
+
+# View lint report
+./gradlew lintDebug
+```
+
+```bash Install
+# Install debug build on connected device
+./gradlew installDebug
+
+# Install and run
+./gradlew installDebug
+adb shell am start -n com.example.casadehistorias/.MainActivity
+```
+</CodeGroup>
+
+## Dependency Management
+
+The project uses a version catalog in `gradle/libs.versions.toml:1-75`. This centralizes dependency versions:
+
+### Core Dependencies
+
+From `app/build.gradle.kts:46-94`:
+
+- **Jetpack Compose**: UI framework
+- **Firebase**: Backend services (Firestore, Auth, Storage)
+- **Hilt**: Dependency injection
+- **Room**: Local database
+- **MapLibre**: Map rendering
+- **Coil**: Image loading
+- **Media3**: Audio playback
+
+### Updating Dependencies
+
+To update a dependency version:
+
+1. Edit `gradle/libs.versions.toml`
+2. Update the version number
+3. Sync Gradle
+4. Test thoroughly
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Build fails with OutOfMemoryError">
+    Increase Gradle heap size in `gradle.properties`:
+    
+    ```properties
+    org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+    ```
+  </Accordion>
+  
+  <Accordion title="KSP processing errors">
+    Clean and rebuild:
+    
+    ```bash
+    ./gradlew clean build
+    ```
+    
+    This regenerates annotation-processed code.
+  </Accordion>
+  
+  <Accordion title="ProGuard removes required classes">
+    Add keep rules to `app/proguard-rules.pro`:
+    
+    ```proguard
+    -keep class com.example.casadehistorias.data.** { *; }
+    -keep class com.google.firebase.** { *; }
+    ```
+  </Accordion>
+  
+  <Accordion title="Firebase configuration not found">
+    Ensure `google-services.json` exists in `app/` directory. See [Firebase Setup](/development/firebase-setup).
+  </Accordion>
+  
+  <Accordion title="Dependency resolution failures">
+    Check repository configuration in `settings.gradle.kts:14-20`:
+    
+    ```kotlin
+    repositories {
+        google()
+        mavenCentral()
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## CI/CD Integration
+
+For automated builds in CI/CD pipelines:
+
+```yaml
+# Example GitHub Actions workflow
+name: Build APK
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Firebase Setup" icon="fire" href="/development/firebase-setup">
+    Configure Firebase services and authentication
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the app's architecture
+  </Card>
+  
+  <Card title="Firebase Setup" icon="fire" href="/development/firebase-setup">
+    Configure Firebase services
+  </Card>
+  
+  <Card title="Compose UI" icon="palette" href="/development/compose-ui">
+    Build and customize UI components
+  </Card>
+</CardGroup>

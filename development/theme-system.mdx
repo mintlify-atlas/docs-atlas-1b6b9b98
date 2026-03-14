@@ -1,0 +1,258 @@
+---
+title: Theme System
+description: Custom color palette, typography, and theming for Casa de Historias
+---
+
+## Overview
+
+Casa de Historias uses a custom dark theme called **"Noche Mística"** (Mystical Night), inspired by ancestral nights in the Sierra de Zongolica. The theme leverages Material Design 3 with a culturally-resonant color palette.
+
+## Color Palette
+
+The app uses a custom color palette defined in `Color.kt` with meaningful names that evoke the app's cultural context.
+
+### Primary Colors
+
+<CodeGroup>
+```kotlin Color.kt
+package com.example.casadehistorias.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// 🌑 Background: Deep Night Blue (Modernized Slate 900)
+val NocheProfunda = Color(0xFF0F172A)
+
+// 💧 Primary: Bright Turquoise (Vibrant Cyan)
+val AguaSagrada = Color(0xFF06B6D4)
+val AguaSagradaOscura = Color(0xFF0891B2)
+
+// ❤️ Accent: Intense Red/Coral (Vibrant Rose)
+val FloresCeremoniales = Color(0xFFF43F5E)
+val FloresCeremonialesOscuras = Color(0xFFE11D48)
+
+// 📄 Text
+val LunaLlena = Color(0xFFF8FAFC)
+val TextoSecundario = Color(0xFF94A3B8)
+
+// Surfaces (Glassmorphism ready)
+val FondoTarjeta = Color(0xCC1E293B) // With transparency
+val SurfaceVariant = Color(0xFF334155)
+
+// Extras
+val SuccessGreen = Color(0xFF4CAF50)
+val WarningOrange = Color(0xFFFFA726)
+```
+</CodeGroup>
+
+### Color Meanings
+
+| Color Name | Hex Code | Meaning | Usage |
+|------------|----------|---------|-------|
+| **NocheProfunda** | `#0F172A` | Deep night sky | Background |
+| **AguaSagrada** | `#06B6D4` | Sacred water | Primary actions, highlights |
+| **AguaSagradaOscura** | `#0891B2` | Dark sacred water | Primary containers |
+| **FloresCeremoniales** | `#F43F5E` | Ceremonial flowers | Accent, errors |
+| **LunaLlena** | `#F8FAFC` | Full moon | Primary text |
+| **TextoSecundario** | `#94A3B8` | - | Secondary text, outlines |
+| **FondoTarjeta** | `#CC1E293B` | - | Card backgrounds (with transparency) |
+
+## Theme Configuration
+
+The theme is configured using Material Design 3's `darkColorScheme` in `Theme.kt`:
+
+<CodeGroup>
+```kotlin Theme.kt
+private val CasaDeHistoriasColorScheme = darkColorScheme(
+    primary = AguaSagrada,
+    onPrimary = NocheProfunda,
+    primaryContainer = AguaSagradaOscura,
+    onPrimaryContainer = LunaLlena,
+
+    secondary = FloresCeremoniales,
+    onSecondary = LunaLlena,
+    secondaryContainer = FloresCeremonialesOscuras,
+    onSecondaryContainer = LunaLlena,
+
+    background = NocheProfunda,
+    onBackground = LunaLlena,
+    surface = FondoTarjeta,
+    onSurface = LunaLlena,
+
+    outline = TextoSecundario,
+    outlineVariant = TextoSecundario.copy(alpha = 0.5f),
+
+    surfaceVariant = SurfaceVariant,
+    onSurfaceVariant = TextoSecundario,
+
+    error = FloresCeremoniales,
+    onError = LunaLlena
+)
+```
+</CodeGroup>
+
+### Theme Composable
+
+The `CasaDeHistoriasTheme` composable applies the theme and configures the system UI:
+
+<CodeGroup>
+```kotlin Theme.kt
+@Composable
+fun CasaDeHistoriasTheme(
+    content: @Composable () -> Unit
+) {
+    val colorScheme = CasaDeHistoriasColorScheme
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = NocheProfunda.toArgb()
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = false
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+```
+</CodeGroup>
+
+<Note>
+The theme automatically sets the status bar color to `NocheProfunda` and configures it for dark appearance.
+</Note>
+
+## Typography
+
+The app uses Material Design 3's typography system with the default font family. Typography scales are defined in `Type.kt`:
+
+<CodeGroup>
+```kotlin Type.kt
+val Typography = Typography(
+    displayLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Bold,
+        fontSize = 57.sp,
+        lineHeight = 64.sp,
+        letterSpacing = (-0.25).sp
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    ),
+    // ... other styles
+)
+```
+</CodeGroup>
+
+### Typography Scale
+
+| Style | Font Size | Weight | Line Height | Use Case |
+|-------|-----------|--------|-------------|----------|
+| `displayLarge` | 57sp | Bold | 64sp | Large headlines |
+| `displayMedium` | 45sp | Bold | 52sp | Medium headlines |
+| `headlineLarge` | 32sp | Bold | 40sp | Section headers |
+| `titleLarge` | 22sp | SemiBold | 28sp | Card titles |
+| `bodyLarge` | 16sp | Normal | 24sp | Body text |
+| `labelLarge` | 14sp | Medium | 20sp | Button text |
+
+## Using the Theme
+
+### In Screens
+
+Access theme colors and typography through `MaterialTheme`:
+
+<CodeGroup>
+```kotlin Example Screen
+@Composable
+fun MyScreen() {
+    Scaffold(
+        containerColor = NocheProfunda
+    ) { padding ->
+        Column(
+            modifier = Modifier.padding(padding)
+        ) {
+            Text(
+                text = "Title",
+                style = MaterialTheme.typography.headlineLarge,
+                color = LunaLlena
+            )
+            Text(
+                text = "Subtitle",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario
+            )
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Custom Components
+
+Apply theme colors consistently:
+
+<CodeGroup>
+```kotlin Custom Button
+Button(
+    onClick = { /* ... */ },
+    colors = ButtonDefaults.buttonColors(
+        containerColor = AguaSagrada,
+        contentColor = NocheProfunda
+    ),
+    shape = RoundedCornerShape(16.dp)
+) {
+    Text("Action", fontWeight = FontWeight.Bold)
+}
+```
+</CodeGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use theme colors">
+    Use the named theme colors (`AguaSagrada`, `LunaLlena`, etc.) instead of hardcoded hex values to maintain consistency and enable easy theme changes.
+  </Accordion>
+
+  <Accordion title="Use MaterialTheme for dynamic colors">
+    Access `MaterialTheme.colorScheme` for semantic colors that automatically adapt:
+    ```kotlin
+    Text(
+        text = "Error",
+        color = MaterialTheme.colorScheme.error
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Respect typography scales">
+    Use the predefined typography styles from `MaterialTheme.typography` for consistent text rendering across the app.
+  </Accordion>
+
+  <Accordion title="Consider accessibility">
+    Ensure sufficient contrast between text and backgrounds. The theme's color choices provide good contrast ratios for readability.
+  </Accordion>
+</AccordionGroup>
+
+## Related Files
+
+- [`Color.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/theme/Color.kt) - Color palette definitions
+- [`Theme.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/theme/Theme.kt) - Theme configuration
+- [`Type.kt`](file:///home/daytona/workspace/source/app/src/main/java/com/example/casadehistorias/ui/theme/Type.kt) - Typography scale
